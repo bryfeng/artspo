@@ -483,7 +483,7 @@ function motionRow(m, k, color, T) {
   const chips = Array.from({ length: Math.max(n, 1) }, () => { const c = el('i', 'chipx'); c.style.setProperty('--c', color); lane.append(c); return c; });
   mid.append(lane);
   if (T) {
-    const tl = el('div', 'timeline'), bar = el('i', 'bar');
+    const tl = el('div', 'timeline'), bar = el('i', 'tl-bar');
     const end = Math.min(T, m.delay + m.ms + m.stagger * (n - 1));
     bar.style.left = (m.delay / T * 100) + '%'; bar.style.width = Math.max((end - m.delay) / T * 100, 0.6) + '%';
     tl.append(bar); mid.append(tl);

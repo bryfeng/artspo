@@ -182,7 +182,7 @@ footer { border-top: 1px solid var(--rule); padding-block: 16px 32px; color: var
 .lane { position: relative; height: 34px; display: flex; align-items: center; gap: 6px; overflow: hidden; }
 .lane .chipx { width: 24px; height: 24px; border-radius: 6px; flex: none; background: var(--c, var(--ink)); }
 .timeline { position: relative; height: 10px; }
-.timeline .bar { position: absolute; top: 3px; height: 4px; border-radius: 2px; background: var(--ink-3); }
+.timeline .tl-bar { position: absolute; top: 3px; height: 4px; border-radius: 2px; background: var(--ink-3); }
 .tl-wrap { display: grid; gap: 2px; }
 .ruler { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr) 170px; gap: 14px; padding: 0 10px; }
 .ruler .scale { position: relative; height: 18px; border-bottom: 1px solid var(--rule); font: 10px/1 var(--mono); color: var(--ink-3); }

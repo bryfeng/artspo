@@ -79,10 +79,12 @@ class Session {
 
 async function openTarget(mode) {
   if (mode === 'window') {
-    const win = await chrome.windows.create({
-      url: 'about:blank', focused: false, type: 'normal', state: 'normal',
-      width: VIEW.width, height: VIEW.height + 100, left: 0, top: 0,
-    });
+    // The viewport is set by device-metrics emulation, so the window only needs to exist. Screens smaller than
+    // 1440×1000 reject that size ("bounds must be at least 50% within visible screen space"), so fall back.
+    const base = { url: 'about:blank', focused: false, type: 'normal', state: 'normal' };
+    const win = await chrome.windows.create({ ...base, width: VIEW.width, height: VIEW.height + 100, left: 0, top: 0 })
+      .catch(() => chrome.windows.create({ ...base, width: 800, height: 600 }))
+      .catch(() => chrome.windows.create(base));
     return { tabId: win.tabs[0].id, close: () => chrome.windows.remove(win.id).catch(() => {}) };
   }
   const tab = await chrome.tabs.create({ url: 'about:blank', active: false });
