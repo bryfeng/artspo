@@ -3,7 +3,7 @@
 // worker, which rebuilds its list and one-clip-per-page index. Read-only: nothing on disk changes.
 const $ = (id) => document.getElementById(id);
 const call = (type, extra = {}) => chrome.runtime.sendMessage({ target: 'background', type, ...extra });
-let pending = [];
+let pending = [], pendingBriefs = [];
 
 function frontmatter(text) {
   const m = /^---\n([\s\S]*?)\n---/.exec(text);
@@ -31,6 +31,12 @@ $('folder').addEventListener('change', async (e) => {
   status.hidden = false; status.className = 'status'; status.textContent = `Reading ${files.length} files…`;
   const paths = new Set(files.map((f) => f.webkitRelativePath));
   const clipFiles = files.filter((f) => /^[^/]+\/[^/]+\/[^/]+\/clip\.md$/.test(f.webkitRelativePath));
+  pendingBriefs = [];
+  for (const f of files.filter((x) => /^[^/]+\/[^/]+\/collection\.md$/.test(x.webkitRelativePath))) {
+    const text = await f.text(); const fm = frontmatter(text);
+    const brief = (/\n## Brief\n([\s\S]*?)(?=\n## |$)/.exec(text) || [])[1]?.trim() || '';
+    pendingBriefs.push({ name: fm.collection || f.webkitRelativePath.split('/')[1], title: fm.title || '', brief: brief.startsWith('_(') ? '' : brief });
+  }
   const root = files[0]?.webkitRelativePath.split('/')[0] || '';
   const entries = [], skipped = [];
   for (const f of clipFiles) {
@@ -65,6 +71,7 @@ $('folder').addEventListener('change', async (e) => {
 $('confirm').addEventListener('click', async () => {
   $('confirm').disabled = true;
   const res = await call('importLibrary', { entries: pending });
+  for (const b of pendingBriefs) if (b.brief || b.title) await call('saveCollection', b);
   const status = $('status');
   if (res?.error) { status.className = 'status bad'; status.textContent = res.error; $('confirm').disabled = false; return; }
   status.className = 'status ok';
@@ -83,13 +90,51 @@ function linkCommands(library) {
   $('winCmd').textContent = `mklink /D "%USERPROFILE%\\Downloads\\${library.replace(/\//g, '\\')}" "D:\\Dropbox\\artspo"`;
 }
 
+let openColl = null;
+const el = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; return n; };
+function collEditor(c) {
+  const meta = (state.collectionMeta || {})[c] || {};
+  const box = el('div', 'editor');
+  const t = el('input'); t.type = 'text'; t.value = meta.title || ''; t.placeholder = `Title (default: ${c})`; t.setAttribute('aria-label', 'Collection title');
+  const b = el('textarea'); b.rows = 3; b.value = meta.brief || ''; b.placeholder = 'Brief: what is this collection for? "Launch page for a treasury product: serious, fast, one bright accent."'; b.setAttribute('aria-label', 'Collection brief');
+  const save = el('button', 'small', 'Save brief'); save.type = 'button';
+  const st = el('span', 'fine');
+  save.onclick = async () => {
+    save.disabled = true;
+    const res = await call('saveCollection', { name: c, title: t.value, brief: b.value });
+    save.disabled = false;
+    if (res?.error) { st.textContent = res.error; return; }
+    state.collectionMeta = { ...(state.collectionMeta || {}), [c]: res.meta };
+    st.textContent = `Saved to ${c}/collection.md`;
+  };
+  const links = el('textarea'); links.rows = 4; links.setAttribute('aria-label', 'Links to add');
+  links.placeholder = 'Paste links, one per line. Text after a link becomes its note:\nhttps://example.com — the way the nav collapses on scroll';
+  const add = el('button', 'small', 'Add links'); add.type = 'button';
+  const out = el('div', 'fine');
+  add.onclick = async () => {
+    if (!links.value.trim()) return;
+    add.disabled = true;
+    const res = await call('addLinks', { collection: c, text: links.value });
+    add.disabled = false;
+    if (res?.error) { out.textContent = res.error; return; }
+    out.textContent = (res.added.length ? `Added ${res.added.length} link${res.added.length === 1 ? '' : 's'} to ${c}. They're queued and get inspected when you're idle (or press Process now in the popup).` : 'Nothing new to add.')
+      + (res.skipped.length ? ` Skipped: ${res.skipped.map((x) => `${x.url} (${x.why})`).join('; ')}.` : '');
+    if (res.added.length) links.value = '';
+  };
+  const r1 = el('div', 'row'); r1.append(save, st);
+  const r2 = el('div', 'row'); r2.append(add, out);
+  box.append(el('label', 'lab', 'Brief'), t, b, r1, el('label', 'lab', 'Add links without visiting them'), links, r2);
+  return box;
+}
 function renderCollections() {
   const ul = $('colls'); ul.textContent = '';
   const counts = {};
   for (const j of state.queue) counts[j.collection] = (counts[j.collection] || 0) + 1;
   for (const c of state.collections) {
     const li = document.createElement('li');
-    const name = document.createElement('span'); name.className = 'cname'; name.textContent = c;
+    const name = document.createElement('button'); name.type = 'button'; name.className = 'cname'; name.textContent = (openColl === c ? '▾ ' : '▸ ') + c;
+    name.title = 'Brief and links'; name.setAttribute('aria-expanded', String(openColl === c));
+    name.onclick = () => { openColl = openColl === c ? null : c; renderCollections(); };
     const n = document.createElement('span'); n.className = 'count'; n.textContent = counts[c] ? `${counts[c]} clip${counts[c] === 1 ? '' : 's'}` : 'empty';
     li.append(name, n);
     if (c === state.lastCollection) {
@@ -104,6 +149,7 @@ function renderCollections() {
       r.onclick = () => collections('remove', c); li.append(r);
     }
     ul.append(li);
+    if (openColl === c) { const ed = el('li', 'edit-row'); ed.append(collEditor(c)); ul.append(ed); }
   }
 }
 async function collections(op, name) {

@@ -277,7 +277,30 @@ export function buildStub(job) {
     '_Inspection is queued — it runs the next time you step away from the computer, or when you press "Process now" in the Artspo popup. This file will be rewritten with tokens and motion._',
     '',
     '## Files',
-    '- seen.jpg — the viewport exactly as it looked when you clipped it',
+    job.seen ? '- seen.jpg — the viewport exactly as it looked when you clipped it' : '- (added from a list of links, so there is no seen.jpg; the first filmstrip frame shows the top of the page)',
+    '',
+  ].join('\n');
+}
+
+// <collection>/collection.md: the collection's brief and the links added to it, for people and agents
+export function buildCollectionMd(name, meta = {}) {
+  const links = meta.links || [];
+  return [
+    '---',
+    `collection: ${name}`,
+    `title: ${yamlStr(meta.title || name)}`,
+    `updated: ${meta.updated || ''}`,
+    '---',
+    `# ${meta.title || name}`,
+    '',
+    '## Brief',
+    meta.brief && meta.brief.trim() ? meta.brief.trim() : '_(no brief yet: what is this collection for? Edit it in Artspo setup.)_',
+    '',
+    '## Links',
+    links.length ? links.map((l) => `- ${l.url}${l.why ? ` — ${l.why}` : ''} (added ${l.added})`).join('\n') : '_(none added as a list yet; clips made with the popup are the folders next to this file)_',
+    '',
+    '---',
+    '_Written by the Artspo extension. Each clip in this collection is a folder next to this file. Works made for it say `collection: ' + name + '` in their work.md._',
     '',
   ].join('\n');
 }

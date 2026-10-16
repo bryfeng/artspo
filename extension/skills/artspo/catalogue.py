@@ -12,11 +12,13 @@ Usage:  python3 catalogue.py [LIBRARY] [options]
                  full-page shots, filmstrips, raw clip.md and file paths. Prints what it left out.
   --with-notes   with --public: keep your notes
   --title TEXT   name shown in the header (e.g. "Sam's Artspo")
+  --collection NAME   only that collection: its brief, its clips, the works made for it, and the patterns they use
 
 Examples
   python3 catalogue.py                                        your private catalogue, in the library
   python3 catalogue.py --public --site ~/artspo-site          public site folder to deploy
   python3 catalogue.py --public --embed --out ~/artspo.html   public single file
+  python3 catalogue.py --public --site ~/launch --collection fintech-launch   share one collection
 
 Python 3.8+, standard library only. Reads files, never changes them except the output page.
 The page itself is assembled from catalogue.html.in, catalogue.css and catalogue.js next to this script.
@@ -311,12 +313,41 @@ def read_clips(lib):
                 status=fm.get("status", ""), tags=fm.get("tags") or [], libs=fm.get("libraries") or [], note=note_text,
                 tagline=quote.group(1).strip() if quote else "", swatches=hexes(section(body, "Palette").split("**Text**")[0], 5),
                 display=sheet["display"]["family"] if sheet["display"] else "",
-                img=f"{base}/seen.jpg" if (d / "seen.jpg").exists() else "",
+                img=next((f"{base}/{n}" for n in ("seen.jpg", "filmstrip/01.jpg", "full.jpg") if (d / n).exists()), ""),
                 full=f"{base}/full.jpg" if (d / "full.jpg").exists() else "",
                 frames=[f"{base}/filmstrip/{n}" for n in frames_of(d, body)],
                 sheet=sheet, record=text, path=f"{base}/clip.md",
                 private=fm.get("private") is True, public=fm.get("public") is True))
     return clips, superseded
+
+
+def read_collections(lib, clips):
+    out = []
+    names = sorted({c["collection"] for c in clips} | {p.name for p in lib.iterdir() if (p / "collection.md").exists()})
+    for name in names:
+        f = lib / name / "collection.md"
+        fm, body = frontmatter(f.read_text(encoding="utf-8", errors="replace")) if f.exists() else ({}, "")
+        brief = section(body, "Brief")
+        links = []
+        for l in bullets(section(body, "Links")):
+            m = re.match(r"(\S+)(?: — (.*?))?(?: \(added ([\d-]+)\))?$", l)
+            if m:
+                links.append(dict(url=m.group(1), why=m.group(2) or "", added=m.group(3) or ""))
+        out.append(dict(key=name, title=fm.get("title") or name, brief="" if brief.startswith("_(") else brief,
+                        links=links, clips=sum(1 for c in clips if c["collection"] == name)))
+    return out
+
+
+def scope_to(collection, clips, patterns, works, collections):
+    """Keep one collection: its clips, the works made for it or from its clips, and the patterns they touch."""
+    if collection not in {c["key"] for c in collections}:
+        sys.exit(f"No collection named {collection}. Collections: {', '.join(c['key'] for c in collections)}")
+    clips = [c for c in clips if c["collection"] == collection]
+    keys = {c["key"] for c in clips}
+    works = [w for w in works if w.get("collection") == collection or keys & set(w["clips"])]
+    used = {p for w in works for p in w["patterns"]}
+    patterns = [p for p in patterns if p["key"] in used or keys & set(p["evidence"] + p["partial"])]
+    return clips, patterns, works, [c for c in collections if c["key"] == collection]
 
 
 def read_patterns(lib):
@@ -373,7 +404,7 @@ def read_works(lib):
                     texts[n] = p.read_text(encoding="utf-8", errors="replace")
             html = next((n for n in files if n.endswith(".html") and (d / n).exists()), "")
             out.append(dict(
-                type="work", key=d.name, title=fm.get("title") or title_of(body) or d.name, kind=fm.get("kind", "" if f.exists() else "uncatalogued"),
+                type="work", key=d.name, collection=fm.get("collection", ""), title=fm.get("title") or title_of(body) or d.name, kind=fm.get("kind", "" if f.exists() else "uncatalogued"),
                 status=fm.get("status", "draft" if f.exists() else "uncatalogued"), starred=bool(fm.get("starred")),
                 made_by=fm.get("made_by", ""), made=str(fm.get("made", d.name[:10])),
                 patterns=fm.get("patterns") or [], clips=[key_of(c) for c in fm.get("clips") or []],
@@ -476,7 +507,7 @@ def write_site(lib, site, clips, works):
 
 
 def main(argv):
-    opts = {"--out": None, "--site": None, "--title": None}
+    opts = {"--out": None, "--site": None, "--title": None, "--collection": None}
     flags, args, i = set(), [], 0
     while i < len(argv):
         a = argv[i]
@@ -500,6 +531,11 @@ def main(argv):
     clips, superseded = read_clips(lib)
     patterns = read_patterns(lib)
     works = read_works(lib)
+    collections = read_collections(lib, clips)
+    if opts["--collection"]:
+        clips, patterns, works, collections = scope_to(opts["--collection"], clips, patterns, works, collections)
+        if not opts["--title"]:
+            opts["--title"] = collections[0]["title"]
     removed = []
     if public:
         clips, removed = public_edition(clips, patterns, works, "--with-notes" in flags)
@@ -520,7 +556,8 @@ def main(argv):
     data = dict(
         title=opts["--title"] or "", library="" if public else str(lib).replace(str(pathlib.Path.home()), "~"),
         built=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), embedded=embed or public, public=public,
-        superseded=0 if public else superseded, clips=clips, patterns=patterns, works=works)
+        superseded=0 if public else superseded, clips=clips, patterns=patterns, works=works,
+        collections=collections, scope=opts["--collection"] or "")
     page = ((HERE / "catalogue.html.in").read_text(encoding="utf-8")
             .replace("%%CSS%%", (HERE / "catalogue.css").read_text(encoding="utf-8"))
             .replace("%%JS%%", (HERE / "catalogue.js").read_text(encoding="utf-8"))

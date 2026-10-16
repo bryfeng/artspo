@@ -28,7 +28,8 @@ Your job is to keep that chain intact: every work traces to patterns, every patt
 
 ```
 artspo/
-  <collection>/                     e.g. fintech-serious, saas-motion, inbox
+  <collection>/                     e.g. fintech-serious, launch-moodboard, inbox: a folder, and a project
+    collection.md                   the collection's brief and the links added to it as a list (written by the extension)
     <date>_<site>_<id>/
       clip.md                       the record — always read this first
       seen.jpg                      viewport exactly as the user saw it when clipping
@@ -52,6 +53,8 @@ Older libraries may have `_generated/` instead of `works/`. The catalogue lists 
 ## Reading clips
 
 1. List the collections. If the user didn't name one, ask which, or use the one whose name fits the request.
+   A collection is also a project: read its `collection.md` first. The **Brief** says what it's for and outranks
+   your own reading of the clips; the **Links** say why each list-added clip is there.
 2. Read the frontmatter and **Note** of every clip in scope before going deeper.
 3. Read the full `clip.md` only for clips you'll draw from. Open images only to judge feel: `seen.jpg` for the
    impression, `full.jpg` for structure, the filmstrip for pacing.
@@ -138,6 +141,10 @@ pattern, with starred patterns listed first.
 **Prefer patterns over raw clips.** Read `patterns/INDEX.md` first. Starred patterns are the user's menu: use
 them unless the request points elsewhere. Drop down to clips only for details a pattern doesn't carry.
 
+**For a collection.** "Make a launch page for launch-moodboard." Start from that collection's brief, use its
+clips and the patterns they cite, read the verdicts on works already made for it, and set `collection:` in the
+new work.md.
+
 **Brand direction.** "Build a brand direction from <collection>."
 Pick one language as the base, then add 2–4 techniques as the differentiators. A language alone tends
 toward a look many sites already share; the techniques are what make it specific. Output:
@@ -169,6 +176,7 @@ status: draft                   # draft | kept | shipped | dropped. The user's c
 starred: false                  # the user's; never change it
 made_by: claude                 # which agent, or "you" for the user's own work
 made: 2026-10-15
+collection: launch-moodboard     # the collection (project) it was made for, if any
 patterns: [research-index, highlighter-marks]        # pattern ids it was made from
 clips: [inbox/2026-10-14_preferencemodel-com_by8f]   # clips drawn on directly, beyond those patterns
 preview: preview.jpg
@@ -226,6 +234,11 @@ When the user wants to share the catalogue outside their own machine, always bui
    user the exact command (e.g. `npx netlify deploy --dir ~/artspo-site --prod`). If they don't say where, ask.
    Never publish without the user's go-ahead.
 5. **Report the link** and what's in it (counts of works, patterns and clips).
+
+**Sharing one collection.** Add `--collection <name>`: the page opens on that collection's brief and holds only its
+clips, the works made for it, and the patterns they use. For a friend who also uses Artspo, you can instead hand
+over the files: the collection folder (with `collection.md`), the works whose `collection:` is that name, and the
+pattern files they list. Apply the same privacy check first.
 
 The public edition keeps each clip's screenshot as a reference thumbnail with a link to the site, plus its rebuilt
 elements and measurements. Screenshots and measurements belong to those sites; the page says so in its footer.

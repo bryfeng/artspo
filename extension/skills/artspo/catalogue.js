@@ -177,15 +177,48 @@ if (D.superseded) foot.append(el('span', 'mono', `${D.superseded} superseded cli
 foot.append(el('span', 'mono', D.public ? 'Made with Artspo' : 'Rebuild: python3 catalogue.py'));
 if (D.title) { const b = document.querySelector('.brand'); b.textContent = ''; b.append(el('b', '', D.title), el('span', '', 'an Artspo catalogue')); document.title = D.title; }
 
-let layer = 'all', q = '', starOnly = false;
+let layer = 'all', q = '', starOnly = false, coll = D.scope || '', inColl = null;
+// a collection is a project: its clips, the works made for it, and the patterns they touch
+function collectionSet(c) {
+  if (!c) return null;
+  const set = new Set();
+  for (const k of D.clips) if (k.collection === c) set.add(k.id);
+  for (const w of D.works) if (w.collection === c || w.clips.some((x) => set.has(idOf('clip', x)))) set.add(w.id);
+  for (const id of [...set]) for (const [o] of near(id)) if (items.get(o).type !== 'clip' && items.get(o).type !== 'work') set.add(o);
+  return set;
+}
+function renderBrief() {
+  const box = $('#brief'); box.textContent = '';
+  const c = (D.collections || []).find((x) => x.key === coll);
+  box.hidden = !c;
+  if (!c) return;
+  const head = el('div', 'brief-h');
+  head.append(el('span', 'mono', `collection · ${c.key}`), el('h2', '', c.title));
+  box.append(head);
+  box.append(c.brief ? el('p', 'brief-t', c.brief) : el('p', 'note empty', D.public ? '' : 'No brief yet. Add one in Artspo setup: what is this collection for?'));
+  const n = D.clips.filter((k) => k.collection === c.key).length, nw = D.works.filter((w) => inColl.has(w.id)).length;
+  box.append(el('div', 'lineage', `${n} clip${n === 1 ? '' : 's'} · ${nw} work${nw === 1 ? '' : 's'}${c.links.length ? ` · ${c.links.length} added as a list` : ''}`));
+}
+{
+  const sel = $('#coll');
+  const cs = D.collections || [];
+  if (cs.length > 1 && !D.scope) {
+    sel.hidden = false;
+    sel.append(new Option('All collections', ''));
+    for (const c of cs) sel.append(new Option(`${c.title} · ${c.clips}`, c.key));
+    sel.addEventListener('change', () => { coll = sel.value; inColl = collectionSet(coll); renderBrief(); applyFilters(); });
+  }
+  inColl = collectionSet(coll);
+  renderBrief();
+}
 const hay = (it) => [it.title, it.key, it.summary, it.note, it.host, it.tagline, it.kind, it.facet, (it.tags || []).join(' ')].join(' ').toLowerCase();
 function applyFilters() {
   for (const c of document.querySelectorAll('.card')) {
     const it = items.get(c.dataset.id);
-    c.classList.toggle('filtered-out', !((!q || hay(it).includes(q)) && (!starOnly || it.starred)));
+    c.classList.toggle('filtered-out', !((!q || hay(it).includes(q)) && (!starOnly || it.starred) && (!inColl || inColl.has(it.id))));
   }
-  for (const s of document.querySelectorAll('main > section')) {
-    s.hidden = !(layer === 'all' || s.dataset.layer === layer);
+  for (const s of document.querySelectorAll('main > section[data-layer]')) {
+    s.hidden = !(layer === 'all' || s.dataset.layer === layer) || (D.public && !s.querySelector('.card'));
     let msg = s.querySelector(':scope > .none');
     const any = s.querySelector('.card:not(.filtered-out)') || (!q && !starOnly && s.querySelector('.empty-card'));
     const EMPTY = { pattern: 'No patterns yet. Ask your agent: “Analyze my artspo library into patterns, then build the catalogue.”', clip: 'No clips yet. Clip a site with the Artspo extension (Alt+Shift+S).', work: 'Nothing made yet.' };
@@ -225,7 +258,7 @@ const TABS = {
   pattern: [['specimen', 'Specimen'], ['evidence', 'Evidence'], ['recipe', 'Recipe']],
   work: [['preview', 'Preview'], ['files', 'Files']],
 };
-const visibleOrder = () => [...document.querySelectorAll('main > section:not([hidden]) .card:not(.filtered-out)')].map((c) => c.dataset.id);
+const visibleOrder = () => [...document.querySelectorAll('main > section[data-layer]:not([hidden]) .card:not(.filtered-out)')].map((c) => c.dataset.id);
 function openViewer(id, tab) {
   const it = items.get(id); if (!it) return;
   const L = LAYER[it.type];

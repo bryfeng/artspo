@@ -54,7 +54,14 @@ page; click anything to trace it back to the sites behind it.
 
 ![The catalogue: works, design languages with live specimens, and techniques](docs/media/catalogue.png)
 
-Share it as a public page with one command. The public edition leaves out logged-in pages, your notes and page text.
+## Collections are projects
+
+Give a collection a brief ("launch page for a calm writing tool: warm, one quiet accent") and paste in links you
+want clipped, without visiting each one. They're inspected while you're idle like any other clip. Your agent reads
+the brief before it makes anything for that collection, and works made for it are filed under it.
+
+Share a whole library, or just one collection, as a page with one command. The public edition leaves out
+logged-in pages, your notes and page text.
 
 ## Install
 
@@ -99,7 +106,9 @@ Then ask your agent:
 
 > Motion spec for a launch page: soft-rise-reveal plus the four-tier timing.
 
-> Publish a public edition of my catalogue.
+> Make a landing page for my launch-moodboard collection.
+
+> Publish a public edition of my launch-moodboard collection.
 
 ## For agents
 

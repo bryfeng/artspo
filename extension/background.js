@@ -1,12 +1,12 @@
 import { inspect } from './lib/inspector.js';
 import { writeFiles } from './lib/writer.js';
-import { buildStub, buildClipMd, replaceNote, cleanNote } from './lib/clipmd.js';
+import { buildStub, buildClipMd, replaceNote, cleanNote, buildCollectionMd } from './lib/clipmd.js';
 import { normUrl, cleanUrl } from './lib/url.js';
 
 const DEFAULT_LIBRARY = 'artspo';
 const MAX_ATTEMPTS = 3;
 const KEEP_DONE = 100;
-const DEFAULTS = { collections: ['inbox'], lastCollection: 'inbox', queue: [], settings: { idleSeconds: 120, library: DEFAULT_LIBRARY }, guideVersion: null, index: {} };
+const DEFAULTS = { collections: ['inbox'], lastCollection: 'inbox', queue: [], settings: { idleSeconds: 120, library: DEFAULT_LIBRARY }, guideVersion: null, index: {}, collectionMeta: {} };
 
 // ---------------- storage ----------------
 const get = async (k) => (await chrome.storage.local.get(k))[k] ?? structuredClone(DEFAULTS[k]);
@@ -135,6 +135,73 @@ async function agentsGuide() {
     + '). The same instructions ship as an agent skill in the Artspo repo: extension/skills/artspo/SKILL.md._\n';
 }
 
+// ---------------- collections: brief + links ----------------
+async function writeCollection(name) {
+  const meta = (await get('collectionMeta'))[name] || {};
+  await writeFiles([{ path: `${await libraryRoot()}/${name}/collection.md`, text: buildCollectionMd(name, meta) }]);
+}
+async function saveCollection({ name, title, brief }) {
+  const coll = collectionSlug(name);
+  const all = await get('collectionMeta');
+  all[coll] = { ...(all[coll] || {}), title: String(title || '').trim() || coll, brief: String(brief || ''), updated: localIso().slice(0, 10) };
+  const collections = await get('collections');
+  if (!collections.includes(coll)) collections.push(coll);
+  await set({ collectionMeta: all, collections });
+  await writeCollection(coll);
+  broadcast();
+  return { name: coll, meta: all[coll] };
+}
+// Paste a list of links: each becomes a queued clip (no seen.jpg, since you never looked at it), inspected when idle.
+// One URL per line; anything after it on the line is the note ("https://x.com — the nav animation").
+async function addLinks({ collection, text }) {
+  const coll = collectionSlug(collection || 'inbox');
+  const root = await libraryRoot();
+  const queue = await get('queue');
+  const index = await get('index');
+  const all = await get('collectionMeta');
+  const meta = all[coll] || { title: coll, brief: '', links: [] };
+  meta.links = meta.links || [];
+  const added = [], skipped = [], files = [], seenKeys = new Set();
+  for (const raw of String(text || '').split(/\n+/)) {
+    const m = raw.trim().match(/^(?:[-*•]\s*)?(\S+)\s*(?:[—–:-]+\s*)?(.*)$/);
+    if (!m || !m[1]) continue;
+    let url = m[1].replace(/[<>]/g, '').replace(/[:,;.)]+$/, '');
+    if (!/^https?:\/\//i.test(url)) url = /^[\w-]+(\.[\w-]+)+/.test(url) ? 'https://' + url : '';
+    if (!url) { if (raw.trim()) skipped.push({ url: raw.trim().slice(0, 80), why: 'not a link' }); continue; }
+    try { new URL(url); } catch { skipped.push({ url, why: 'not a link' }); continue; }
+    url = cleanUrl(url);
+    const key = normUrl(url);
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    const known = queue.find((j) => normUrl(j.url) === key) || index[key];
+    if (known) { skipped.push({ url, why: `already clipped, in ${known.collection}` }); continue; }
+    const clippedAt = localIso();
+    const folder = clipFolder(url, clippedAt);
+    const note = cleanNote(m[2]);
+    const job = {
+      id: crypto.randomUUID(), url, title: new URL(url).hostname.replace(/^www\./, ''), collection: coll, tags: [], note,
+      clippedAt, folder, dir: `${root}/${coll}/${folder}`, status: 'queued', attempts: 0, seen: false, fromList: true,
+    };
+    job.md = buildStub(job);
+    files.push({ path: `${job.dir}/clip.md`, text: job.md });
+    queue.unshift(job);
+    index[key] = indexEntry(job);
+    meta.links.push({ url, why: note, added: clippedAt.slice(0, 10) });
+    added.push(url);
+  }
+  if (added.length) {
+    meta.updated = localIso().slice(0, 10);
+    all[coll] = meta;
+    const collections = await get('collections');
+    if (!collections.includes(coll)) collections.push(coll);
+    files.push({ path: `${root}/${coll}/collection.md`, text: buildCollectionMd(coll, meta) });
+    await writeFiles(files);
+    await set({ queue, index, collectionMeta: all, collections });
+    broadcast();
+  }
+  return { added, skipped, collection: coll };
+}
+
 // ---------------- clip (instant) ----------------
 async function clip({ tabId, windowId, url, title, collection, tags, note }) {
   if (!/^https?:/.test(url)) throw new Error('Only http(s) pages can be clipped');
@@ -255,6 +322,7 @@ async function runJob(job, reason) {
     files.push({ path: `${job.dir}/clip.md`, text: md });
     await writeFiles(files);
     await updateJob(job.id, {
+      ...(job.fromList && result?.meta?.title ? { title: result.meta.title } : {}),
       status: diag.partial ? 'partial' : 'done', progress: undefined, finishedAt: Date.now(), md,
       summary: { mode: diag.mode, throttled: diag.throttled, fps: [diag.fpsLoad, diag.fpsScroll], libs: result?.libs || [] },
       error: diag.errors.length ? diag.errors.join('; ') : undefined,
@@ -322,8 +390,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   (async () => {
     switch (msg.type) {
       case 'state': {
-        const [queue, collections, lastCollection, settings] = await Promise.all([get('queue'), get('collections'), get('lastCollection'), get('settings')]);
-        return { queue, collections, lastCollection, settings, processing };
+        const [queue, collections, lastCollection, settings, collectionMeta] = await Promise.all([get('queue'), get('collections'), get('lastCollection'), get('settings'), get('collectionMeta')]);
+        return { queue, collections, lastCollection, settings, collectionMeta, processing };
       }
       case 'clip': return { job: await clip(msg.data) };
       case 'lookup': {
@@ -401,6 +469,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
         return { collections, lastCollection };
       }
       case 'importLibrary': return importLibrary(msg.entries || []);
+      case 'saveCollection': return saveCollection(msg);
+      case 'addLinks': return addLinks(msg);
       case 'openCatalogue': {
         // catalogue.html is built by your agent (skills/artspo/catalogue.py) at the library root
         const lp = ((await get('queue')) || []).map((j) => j.localPath).find(Boolean);

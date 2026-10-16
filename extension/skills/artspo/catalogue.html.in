@@ -17,12 +17,14 @@
     <button class="tab" type="button" id="tab-clip" data-layer="clip"><span class="idx clip">C</span>Clips <span class="n" id="n-clip"></span></button>
   </nav>
   <div class="tools">
+    <select id="coll" aria-label="Collection" hidden></select>
     <input id="q" type="search" placeholder="Search names, notes, ids" aria-label="Search the catalogue" autocomplete="off">
     <button class="toggle" type="button" id="starred" aria-pressed="false">Starred</button>
   </div>
 </div></header>
 
 <main class="wrap" id="main">
+  <section id="brief" class="brief" hidden></section>
   <section id="works" data-layer="work">
     <div class="sec-h"><h2>Works</h2><p>What we made from the library. Open one to see it and everything it came from.</p></div>
     <div class="grid wide" id="g-works"></div>

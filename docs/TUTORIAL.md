@@ -40,6 +40,10 @@ in `AGENTS.md`. Upload or connect the `artspo` folder and start with "Read AGENT
 That saves a screenshot instantly. The full inspection runs when you've been away for 2 minutes. You'll see a tab
 open and close, and Chrome's "started debugging this browser" bar. To run it now, press **Process now**.
 
+**Have a list of links already?** Open **Setup** from the popup, click a collection, and paste them in, one per
+line (anything after a link becomes its note). Give the collection a brief while you're there: it's what your agent
+reads first when you ask for work for that collection.
+
 ## 3. Ask for something
 
 From any folder (the skill finds your library), or from inside `~/Downloads/artspo`:
