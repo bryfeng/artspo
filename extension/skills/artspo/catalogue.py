@@ -11,7 +11,7 @@ Usage:  python3 catalogue.py [LIBRARY] [options]
   --public       the public edition: leaves out private and logged-in clips, your notes, site text,
                  full-page shots, filmstrips, raw clip.md and file paths. Prints what it left out.
   --with-notes   with --public: keep your notes
-  --title TEXT   name shown in the header (e.g. "Bryan's Artspo")
+  --title TEXT   name shown in the header (e.g. "Sam's Artspo")
 
 Examples
   python3 catalogue.py                                        your private catalogue, in the library
