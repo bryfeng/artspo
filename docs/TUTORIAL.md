@@ -8,7 +8,7 @@ you upload files to.
 
 ## 1. Install (3 min)
 
-1. Clone or unzip Artspo somewhere permanent, **not** inside `~/Downloads/artspo` (that's where your clips go).
+1. Get Artspo from https://github.com/bryfeng/artspo (`git clone`, or **Code → Download ZIP**) and put it somewhere permanent, **not** inside `~/Downloads/artspo` (that's where your clips go).
    For example `~/code/artspo`.
 2. In Chrome, go to `chrome://extensions`, turn on **Developer mode** (top right), click **Load unpacked**, and
    pick the `extension` folder inside it. Pin Artspo to the toolbar.

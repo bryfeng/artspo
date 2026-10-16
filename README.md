@@ -26,14 +26,14 @@ catalogue.py ─────▶ catalogue.html: browse everything, trace any wor
 
 You need Chrome 118 or newer. Python 3 is optional; agents use it to build the catalogue page.
 
-1. **Get the code.** Clone this repo, or download and unzip the release, somewhere permanent:
-   `~/code/artspo`, for example. Don't put it inside `~/Downloads/artspo`, which is where your clips go.
+1. **Get the code.** `git clone https://github.com/bryfeng/artspo`, or use **Code → Download ZIP** on GitHub and unzip
+   it somewhere permanent: `~/code/artspo`, for example. Don't put it inside `~/Downloads/artspo`, which is where your clips go.
 2. **Load the extension.** Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and
    choose the `extension` folder. Pin Artspo to the toolbar.
 3. **Install the skill.** From the repo folder, run `sh install.sh`, then restart your agent. On Windows, or
    for an agent the script doesn't know, copy `extension/skills/artspo/` into your agent's skills folder.
 
-Updating later: `git pull` (or unzip the new release over the old folder), click ↻ on Artspo in
+Updating later: `git pull` (or download the ZIP again and replace the old folder), click ↻ on Artspo in
 `chrome://extensions`, and run `sh install.sh` again.
 
 **Moving or reinstalling the extension?** An unpacked extension's memory is tied to its folder, so a new
