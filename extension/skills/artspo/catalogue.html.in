@@ -1,0 +1,66 @@
+<title>Artspo Catalogue</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
+<style>
+%%CSS%%
+</style>
+
+<header class="top"><div class="wrap bar">
+  <div class="brand"><b>Artspo</b><span>catalogue</span></div>
+  <nav class="tabs" aria-label="Layers">
+    <button class="tab" type="button" id="tab-all" data-layer="all" aria-pressed="true">All</button>
+    <button class="tab" type="button" id="tab-work" data-layer="work"><span class="idx work">W</span>Works <span class="n" id="n-work"></span></button>
+    <button class="tab" type="button" id="tab-pattern" data-layer="pattern"><span class="idx pattern">P</span>Patterns <span class="n" id="n-pattern"></span></button>
+    <button class="tab" type="button" id="tab-clip" data-layer="clip"><span class="idx clip">C</span>Clips <span class="n" id="n-clip"></span></button>
+  </nav>
+  <div class="tools">
+    <input id="q" type="search" placeholder="Search names, notes, ids" aria-label="Search the catalogue" autocomplete="off">
+    <button class="toggle" type="button" id="starred" aria-pressed="false">Starred</button>
+  </div>
+</div></header>
+
+<main class="wrap" id="main">
+  <section id="works" data-layer="work">
+    <div class="sec-h"><h2>Works</h2><p>What we made from the library. Open one to see it and everything it came from.</p></div>
+    <div class="grid wide" id="g-works"></div>
+  </section>
+  <section id="patterns" data-layer="pattern">
+    <div class="sec-h"><h2>Patterns</h2><p>Reusable knowledge from the clips. Open one to play its live specimen.</p></div>
+    <div class="sub">Languages</div>
+    <div class="grid" id="g-languages"></div>
+    <div id="g-techniques"></div>
+  </section>
+  <section id="clips" data-layer="clip">
+    <div class="sec-h"><h2>Clips</h2><p>The evidence. Open one to see its elements rebuilt from the measurements: palette, type, buttons, shapes and motion.</p></div>
+    <div class="grid" id="g-clips"></div>
+  </section>
+</main>
+<footer class="wrap" id="foot"></footer>
+
+<div id="viewer" hidden role="dialog" aria-modal="true" aria-labelledby="v-title">
+  <div class="v-bar">
+    <div class="v-head">
+      <span id="v-idx" class="idx"></span>
+      <div class="v-titles"><span class="mono" id="v-kind"></span><h2 id="v-title"></h2></div>
+    </div>
+    <nav class="v-tabs" id="v-tabs" aria-label="Views"></nav>
+    <div class="v-nav">
+      <span class="mono" id="v-pos"></span>
+      <button class="btn" type="button" id="v-prev" aria-label="Previous">←</button>
+      <button class="btn" type="button" id="v-next" aria-label="Next">→</button>
+      <button class="btn" type="button" id="v-close">Close</button>
+    </div>
+  </div>
+  <div class="v-body">
+    <div class="v-stage" id="v-stage" tabindex="-1"></div>
+    <aside class="v-side" id="v-side"></aside>
+  </div>
+</div>
+
+<script type="application/json" id="data">%%DATA%%</script>
+<script>
+%%JS%%
+</script>

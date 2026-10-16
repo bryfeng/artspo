@@ -1,0 +1,83 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <div class="brand"><span class="mark"></span>artspo</div>
+    <div class="queue-state" id="queueState"></div>
+  </header>
+
+  <section id="clipForm">
+    <div class="page">
+      <img id="favicon" alt="">
+      <div class="page-text">
+        <div class="page-title" id="pageTitle">—</div>
+        <div class="page-host" id="pageHost"></div>
+      </div>
+    </div>
+    <div class="already" id="already" hidden></div>
+
+    <label class="field">
+      <span>Collection</span>
+      <div class="row">
+        <select id="collection"></select>
+        <input id="newCollection" placeholder="new-collection" hidden>
+      </div>
+    </label>
+
+    <label class="field">
+      <span>Note <em>what caught your eye?</em></span>
+      <textarea id="note" rows="3" placeholder="The way the numbers count up on scroll…"></textarea>
+    </label>
+
+    <label class="field">
+      <span>Tags</span>
+      <input id="tags" placeholder="dark-mode, editorial, scroll-reveal">
+    </label>
+
+    <button id="save" class="primary">Clip <kbd id="saveKey">⌘↵</kbd></button>
+    <div class="error" id="error" hidden></div>
+  </section>
+
+  <section id="saved" hidden>
+    <div class="saved-title">Clipped to <b id="savedCollection"></b></div>
+    <div class="saved-sub">Screenshot saved. The full inspection runs next time you step away.</div>
+    <code id="savedPath"></code>
+    <div id="lateNote" hidden>
+      <label class="field late">
+        <span>Note <em>what caught your eye? Add it while it's fresh</em></span>
+        <textarea id="lateNoteText" rows="3" placeholder="The way the numbers count up on scroll…"></textarea>
+      </label>
+      <button id="saveLateNote" class="primary">Save note <kbd class="key2"></kbd></button>
+    </div>
+    <div id="noted" class="noted" hidden>Note saved to clip.md</div>
+  </section>
+
+  <section class="recent">
+    <div class="recent-head">
+      <span>Recent</span>
+      <button id="processNow" class="ghost">Process now</button>
+      <button id="reinspectAll" class="ghost" title="Run every clip through the latest inspection (keeps notes and seen.jpg)" hidden>↻ Re-inspect all</button>
+    </div>
+    <ul id="jobs"></ul>
+  </section>
+
+  <footer>
+    <label>Inspect after
+      <select id="idle">
+        <option value="60">1 min</option>
+        <option value="120">2 min</option>
+        <option value="300">5 min</option>
+        <option value="600">10 min</option>
+      </select>
+      idle
+    </label>
+    <span class="links"><button id="openCatalogue" class="link" title="Open catalogue.html (your agent builds it with the artspo skill)">Catalogue ↗</button><button id="openFolder" class="link">Downloads/artspo ↗</button></span>
+  </footer>
+  <div class="foot-msg" id="footMsg" hidden></div>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

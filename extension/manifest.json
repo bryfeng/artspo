@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "Artspo",
+  "version": "0.4.0",
+  "description": "Clip websites into collections. Inspects design tokens and motion while you're idle, and writes clip.md files your AI agent can read.",
+  "minimum_chrome_version": "118",
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Clip to Artspo",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "options_ui": { "page": "options/options.html", "open_in_tab": true },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "storage",
+    "downloads",
+    "downloads.ui",
+    "idle",
+    "alarms",
+    "debugger",
+    "offscreen"
+  ],
+  "host_permissions": ["<all_urls>"],
+  "commands": {
+    "_execute_action": {
+      "suggested_key": { "default": "Alt+Shift+S", "mac": "Alt+Shift+S" },
+      "description": "Open the Artspo clipper"
+    }
+  }
+}

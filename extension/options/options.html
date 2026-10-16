@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Artspo · Library</title>
+<link rel="stylesheet" href="options.css">
+<main>
+  <header>
+    <h1>Artspo</h1>
+    <p class="lede">Your library is the <code>artspo</code> folder in Downloads. The extension keeps a list of what's in it, so it can update a clip instead of duplicating it, and re-inspect it later.</p>
+  </header>
+
+  <section>
+    <h2>Reconnect a library</h2>
+    <p>Use this after reinstalling Artspo, moving the extension folder, or setting it up on a new computer. Choose your <code>artspo</code> folder. Artspo reads the <code>clip.md</code> files in it and relearns your clips, notes and collections. Nothing in the folder is changed.</p>
+    <label class="pick" for="folder">Choose your artspo folder…
+      <input type="file" id="folder" webkitdirectory multiple hidden>
+    </label>
+    <div id="status" class="status" hidden></div>
+    <ul id="found" class="found" hidden></ul>
+    <div class="row" id="confirmRow" hidden>
+      <button type="button" id="confirm">Reconnect <span id="count"></span></button>
+      <button type="button" id="cancel" class="ghost">Cancel</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>What Artspo knows now</h2>
+    <p id="known">…</p>
+  </section>
+</main>
+<script type="module" src="options.js"></script>
+</html>
