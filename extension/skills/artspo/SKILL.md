@@ -20,7 +20,10 @@ Your job is to keep that chain intact: every work traces to patterns, every patt
 
 ## Find the library
 
-- Default location: `~/Downloads/artspo/` (Windows: `%USERPROFILE%\Downloads\artspo\`). Use a path the user gives instead if they name one.
+- Default location: `~/Downloads/artspo/` (Windows: `%USERPROFILE%\Downloads\artspo\`). The extension's setup can
+  put it in another folder under Downloads (e.g. `~/Downloads/Design/artspo`), or the user may have linked it to a
+  folder elsewhere. Use a path the user gives if they name one; otherwise look for the folder that holds `AGENTS.md`
+  next to collection folders of `clip.md` files.
 - If it doesn't exist, the user hasn't clipped anything yet. Say so; don't invent clips.
 
 ```

@@ -3,10 +3,10 @@ import { writeFiles } from './lib/writer.js';
 import { buildStub, buildClipMd, replaceNote, cleanNote } from './lib/clipmd.js';
 import { normUrl, cleanUrl } from './lib/url.js';
 
-const ROOT = 'artspo';
+const DEFAULT_LIBRARY = 'artspo';
 const MAX_ATTEMPTS = 3;
 const KEEP_DONE = 100;
-const DEFAULTS = { collections: ['inbox'], lastCollection: 'inbox', queue: [], settings: { idleSeconds: 120 }, guideVersion: null, index: {} };
+const DEFAULTS = { collections: ['inbox'], lastCollection: 'inbox', queue: [], settings: { idleSeconds: 120, library: DEFAULT_LIBRARY }, guideVersion: null, index: {} };
 
 // ---------------- storage ----------------
 const get = async (k) => (await chrome.storage.local.get(k))[k] ?? structuredClone(DEFAULTS[k]);
@@ -28,6 +28,17 @@ async function refreshBadge() {
   const pending = queue.filter((j) => j.status === 'queued' || j.status === 'running').length;
   chrome.action.setBadgeText({ text: pending ? String(pending) : '' });
   chrome.action.setBadgeBackgroundColor({ color: '#1a1a1a' });
+}
+
+// ---------------- library location ----------------
+// Chrome only lets extensions save inside the Downloads folder, so the library is a path relative to it.
+// (To keep it elsewhere, make that path a symlink to the real folder; downloads follow it.)
+const libraryRoot = async () => (await get('settings')).library || DEFAULT_LIBRARY;
+export function cleanLibrary(input) {
+  const parts = String(input || '').replace(/^~?\/?(downloads\/)?/i, '').split(/[\\/]+/)
+    .map((p) => p.trim().replace(/[^\w .-]/g, '').replace(/^\.+/, '').trim()).filter((p) => p && p !== '.' && p !== '..');
+  if (!parts.length) throw new Error('Give the library folder a name, like artspo or Design/artspo.');
+  return parts.join('/');
 }
 
 // ---------------- setup ----------------
@@ -85,7 +96,10 @@ async function dedupe() {
   }
   return superseded;
 }
-chrome.runtime.onInstalled.addListener(init);
+chrome.runtime.onInstalled.addListener((details) => {
+  init();
+  if (details.reason === 'install') chrome.tabs.create({ url: chrome.runtime.getURL('options/options.html?welcome=1') });
+});
 chrome.runtime.onStartup.addListener(init);
 
 chrome.idle.onStateChanged.addListener((state) => {
@@ -132,12 +146,13 @@ async function clip({ tabId, windowId, url, title, collection, tags, note }) {
   if (existing) return updateClip(existing, { windowId, url, title, tags, note });
   const known = (await get('index'))[key];
   const coll = known ? known.collection : collectionSlug(collection || 'inbox');
+  const root = await libraryRoot();
   const clippedAt = known ? known.clippedAt : localIso();
   const folder = known ? known.folder : clipFolder(url, clippedAt);
   const job = {
     id: crypto.randomUUID(), url, title, collection: coll,
     tags: [...new Set([...(known?.tags || []), ...(tags || [])])], note: cleanNote(note) || known?.note || '',
-    clippedAt, folder, dir: known ? known.dir : `${ROOT}/${coll}/${folder}`, status: 'queued', attempts: 0, seen: false,
+    clippedAt, folder, dir: known ? known.dir : `${root}/${coll}/${folder}`, status: 'queued', attempts: 0, seen: false,
     updatedAt: known ? localIso() : undefined,
   };
   // what you actually saw, right now — the deferred pass may get a different page later
@@ -149,9 +164,10 @@ async function clip({ tabId, windowId, url, title, collection, tags, note }) {
   // the library carries its own instructions for any agent: AGENTS.md = the artspo skill, minus frontmatter.
   // Rewritten whenever the extension version changes, so the guide never drifts from the format.
   const version = chrome.runtime.getManifest().version;
-  if ((await get('guideVersion')) !== version) files.push({ path: `${ROOT}/AGENTS.md`, text: await agentsGuide() });
+  const guideKey = `${version}@${root}`;
+  if ((await get('guideVersion')) !== guideKey) files.push({ path: `${root}/AGENTS.md`, text: await agentsGuide() });
   const written = await writeFiles(files);
-  await set({ guideVersion: version });
+  await set({ guideVersion: guideKey });
   job.localPath = written[0]?.replace(/[\\/]clip\.md$/, '');
 
   const collections = await get('collections');
@@ -269,6 +285,7 @@ async function importLibrary(entries) {
   const queue = await get('queue');
   const index = await get('index');
   const collections = await get('collections');
+  const root = await libraryRoot();
   let added = 0, merged = 0;
   const byKey = new Map(queue.map((j) => [normUrl(j.url), j]));
   for (const e of entries.sort((a, b) => String(a.clippedAt).localeCompare(String(b.clippedAt)))) {
@@ -285,7 +302,7 @@ async function importLibrary(entries) {
     }
     const job = {
       id: crypto.randomUUID(), url: e.url, title: e.title, collection: coll, tags: e.tags || [], note: cleanNote(e.note),
-      clippedAt: e.clippedAt, folder: e.folder, dir: `${ROOT}/${coll}/${e.folder}`, status: STATUS[e.status] || 'done',
+      clippedAt: e.clippedAt, folder: e.folder, dir: `${root}/${coll}/${e.folder}`, status: STATUS[e.status] || 'done',
       attempts: 0, seen: !!e.seen, md: e.md, imported: true,
     };
     queue.unshift(job);
@@ -358,6 +375,31 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
       }
       case 'showFolder': chrome.downloads.showDefaultFolder(); return { ok: true };
       case 'openOptions': chrome.runtime.openOptionsPage(); return { ok: true };
+      case 'setLibrary': {
+        const library = cleanLibrary(msg.library);
+        const settings = await get('settings');
+        const changed = (settings.library || DEFAULT_LIBRARY) !== library;
+        await set({ settings: { ...settings, library } });
+        return { library, changed };
+      }
+      case 'collections': {
+        // the list the popup offers; folders on disk are never touched
+        let collections = await get('collections');
+        let lastCollection = await get('lastCollection');
+        const name = msg.name ? collectionSlug(msg.name) : '';
+        if (msg.op === 'add' && name && !collections.includes(name)) collections.push(name);
+        if (msg.op === 'default' && collections.includes(name)) lastCollection = name;
+        if (msg.op === 'remove') {
+          const queue = await get('queue');
+          if (queue.some((j) => j.collection === name)) throw new Error(`${name} has clips in the list. Remove those first, or keep the collection.`);
+          collections = collections.filter((c) => c !== name);
+          if (!collections.length) collections = ['inbox'];
+          if (lastCollection === name) lastCollection = collections[0];
+        }
+        await set({ collections, lastCollection });
+        broadcast();
+        return { collections, lastCollection };
+      }
       case 'importLibrary': return importLibrary(msg.entries || []);
       case 'openCatalogue': {
         // catalogue.html is built by your agent (skills/artspo/catalogue.py) at the library root

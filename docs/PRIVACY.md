@@ -6,7 +6,7 @@ Artspo has no server, no account, no analytics and no tracking. It sends nothing
 opens that same URL in a background tab, scrolls it, and measures its styles and motion. It uses your normal
 Chrome profile, so pages behind a login inspect as you see them.
 
-**What it writes.** Files in `Downloads/artspo` on your computer: `clip.md`, screenshots, and `AGENTS.md`. The
+**What it writes.** Files in your library folder (`Downloads/artspo` unless you chose another in setup): `clip.md`, screenshots, and `AGENTS.md`. The
 extension also keeps a list of your clips in Chrome's local extension storage, so it can update a clip instead of
 duplicating it.
 
@@ -17,7 +17,7 @@ duplicating it.
 | Access to all sites | to inspect whichever page you clip |
 | `debugger` | to scroll the page with real input, capture full-page screenshots, and record motion from the first frame |
 | `tabs`, `activeTab` | to know which page you're clipping and screenshot it |
-| `downloads`, `offscreen` | to write files into `Downloads/artspo` |
+| `downloads`, `offscreen` | to write files into your library folder |
 | `storage` | to remember your clips, collections and settings |
 | `idle`, `alarms` | to run inspections while you're away |
 

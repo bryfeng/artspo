@@ -62,7 +62,7 @@ function renderJobs(queue, processing) {
     li.className = 'empty';
     li.textContent = 'Nothing clipped yet. ';
     const r = document.createElement('button');
-    r.className = 'link'; r.textContent = 'Already have a library? Reconnect it';
+    r.className = 'link'; r.textContent = 'Set up, or reconnect an existing library';
     r.onclick = () => call('openOptions');
     li.append(r);
     ul.append(li);
@@ -131,6 +131,7 @@ async function refresh() {
   renderJobs(s.queue, s.processing);
   if (!$('collection').options.length) renderCollections(s.collections, s.lastCollection);
   $('idle').value = String(s.settings.idleSeconds);
+  $('openFolder').textContent = `Downloads/${s.settings.library || 'artspo'} ↗`;
 }
 
 async function init() {
@@ -217,6 +218,7 @@ $('processNow').addEventListener('click', () => call('processNow').then(refresh)
 $('reinspectAll').addEventListener('click', () => call('reinspectAll').then(refresh));
 $('idle').addEventListener('change', () => call('settings', { settings: { idleSeconds: +$('idle').value } }));
 $('openFolder').addEventListener('click', () => call('showFolder'));
+$('openSetup').addEventListener('click', () => call('openOptions'));
 $('openCatalogue').addEventListener('click', async () => {
   const res = await call('openCatalogue');
   const m = $('footMsg');

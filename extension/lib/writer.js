@@ -1,4 +1,4 @@
-// Writes files into ~/Downloads/artspo/... via chrome.downloads, without a native host.
+// Writes files into the library folder under Downloads (artspo/ by default) via chrome.downloads, without a native host.
 // Downloads are hidden from the shelf/bubble while writing and erased from history afterwards
 // (erasing history does not delete the file).
 

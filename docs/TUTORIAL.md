@@ -12,6 +12,8 @@ you upload files to.
    For example `~/code/artspo`.
 2. In Chrome, go to `chrome://extensions`, turn on **Developer mode** (top right), click **Load unpacked**, and
    pick the `extension` folder inside it. Pin Artspo to the toolbar.
+   A setup page opens: keep the default library folder (`Downloads/artspo`) or pick another, and add a few
+   collections.
 3. In a terminal, from the Artspo folder, run `sh install.sh` and restart your agent.
 
 `install.sh` copies the `artspo` skill into each agent's skills folder it finds. To do it by hand, copy

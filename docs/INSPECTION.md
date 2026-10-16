@@ -53,6 +53,6 @@ The catalogue replays these on a timeline, and marks the approximate ones.
 | `lib/clipmd.js` | turns measurements into `clip.md` |
 | `lib/writer.js` + `offscreen/` | writes files via the downloads API |
 | `popup/` | the clipper UI |
-| `options/` | Reconnect a library after moving or reinstalling the extension |
+| `options/` | Setup: library folder, collections, inspection timing, and reconnecting a library after moving or reinstalling |
 | `skills/artspo/SKILL.md` | agent skill (any Agent Skills-compatible agent); also written to the library as `AGENTS.md` |
 | `skills/artspo/catalogue.py` (+ `.css`, `.js`, `.html.in`) | builds `catalogue.html`: a grid of clips, patterns and works, and a viewer that rebuilds each clip's elements and plays each pattern's specimen (Python 3, stdlib only) |

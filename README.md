@@ -11,7 +11,8 @@ Two parts, both in this repo:
   Gemini CLI, Copilot) to read the library, distill it into reusable patterns, make things from it, and build
   the catalogue.
 
-There's no server and no account. Everything lives in `~/Downloads/artspo` on your computer.
+There's no server and no account. Everything lives in a folder on your computer (`~/Downloads/artspo` unless
+you choose another).
 
 ## How it fits together
 
@@ -29,16 +30,22 @@ You need Chrome 118 or newer. Python 3 is optional; agents use it to build the c
 1. **Get the code.** `git clone https://github.com/bryfeng/artspo`, or use **Code → Download ZIP** on GitHub and unzip
    it somewhere permanent: `~/code/artspo`, for example. Don't put it inside `~/Downloads/artspo`, which is where your clips go.
 2. **Load the extension.** Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and
-   choose the `extension` folder. Pin Artspo to the toolbar.
+   choose the `extension` folder. Pin Artspo to the toolbar. A setup page opens: pick the library folder (default
+   `Downloads/artspo`), name a few collections, and set how long to wait before inspecting. Reopen it any time
+   from **Setup** in the popup.
 3. **Install the skill.** From the repo folder, run `sh install.sh`, then restart your agent. On Windows, or
    for an agent the script doesn't know, copy `extension/skills/artspo/` into your agent's skills folder.
 
 Updating later: `git pull` (or download the ZIP again and replace the old folder), click ↻ on Artspo in
 `chrome://extensions`, and run `sh install.sh` again.
 
+**Library somewhere other than Downloads?** Chrome only lets extensions save inside Downloads, so the setup
+page shows a one-line command that links a folder there to wherever you want the library (Dropbox, iCloud, a
+projects folder). Clips are written through the link.
+
 **Moving or reinstalling the extension?** An unpacked extension's memory is tied to its folder, so a new
 location starts with an empty list. Your clips are safe on disk: open Artspo's **Options** (or click "Reconnect"
-in an empty popup), choose your `artspo` folder, and it relearns them.
+in an empty popup), choose your library folder, and it relearns them.
 
 ## Use
 
@@ -123,3 +130,7 @@ it confirm with you before anything goes online.
 - [docs/PRIVACY.md](docs/PRIVACY.md): what Artspo touches and where data goes (nowhere)
 - [docs/BACKLOG.md](docs/BACKLOG.md): what's planned
 - `sh package.sh` builds the release zips (the whole repo, and the extension alone for the Chrome Web Store)
+
+## License
+
+MIT. See [LICENSE](LICENSE).

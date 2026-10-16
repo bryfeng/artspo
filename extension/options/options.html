@@ -2,18 +2,72 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Artspo · Library</title>
+<title>Artspo · Setup</title>
 <link rel="stylesheet" href="options.css">
 <main>
   <header>
-    <h1>Artspo</h1>
-    <p class="lede">Your library is the <code>artspo</code> folder in Downloads. The extension keeps a list of what's in it, so it can update a clip instead of duplicating it, and re-inspect it later.</p>
+    <h1>Artspo setup</h1>
+    <p class="lede" id="lede">Where your library lives, how it's organized, and how your agent finds it.</p>
+    <ol class="steps" id="welcome" hidden>
+      <li><b>Pick where clips go</b> (or keep the default).</li>
+      <li><b>Name a few collections</b> for the kinds of sites you save.</li>
+      <li><b>Give your agent the skill</b>, then clip your first site with <kbd>Alt+Shift+S</kbd>.</li>
+    </ol>
   </header>
 
-  <section>
+  <section id="s-library">
+    <h2><span class="n">1</span>Library folder</h2>
+    <p>Every clip is saved as a folder in here, with a <code>clip.md</code> your agent reads.</p>
+    <form class="row path" id="libraryForm">
+      <span class="prefix">Downloads /</span>
+      <input id="library" type="text" spellcheck="false" autocomplete="off" aria-label="Library folder, inside Downloads">
+      <button type="submit" id="saveLibrary">Save</button>
+    </form>
+    <div class="status" id="libraryStatus" hidden></div>
+    <details>
+      <summary>Want it outside Downloads (Dropbox, iCloud, a projects folder)?</summary>
+      <p>Chrome only lets extensions save inside your Downloads folder. To keep the library somewhere else, leave the name above as it is and link that spot to your real folder. In Terminal:</p>
+      <div class="cmd"><code id="linkCmd"></code><button type="button" class="ghost copy" data-copy="linkCmd">Copy</button></div>
+      <p class="fine">Change <code>~/Dropbox/artspo</code> to where you want it. The link must not already exist as a real folder: move any clips into the new place first. On Windows: <code id="winCmd"></code>. Clip one page afterwards to check it lands where you expect.</p>
+    </details>
+  </section>
+
+  <section id="s-collections">
+    <h2><span class="n">2</span>Collections</h2>
+    <p>Each collection is a folder in your library: <code>inbox</code>, <code>fintech-serious</code>, <code>playful-onboarding</code>. The popup offers this list, and new clips go to the default.</p>
+    <ul class="colls" id="colls"></ul>
+    <form class="row" id="addForm">
+      <input id="newColl" type="text" placeholder="New collection, e.g. editorial-motion" aria-label="New collection name" autocomplete="off">
+      <button type="submit" class="ghost">Add</button>
+    </form>
+    <div class="status" id="collStatus" hidden></div>
+  </section>
+
+  <section id="s-agent">
+    <h2><span class="n">3</span>Your agent</h2>
+    <p>Coding agents (Claude Code, Codex, Cursor, Gemini CLI, Copilot) learn Artspo from a skill. From the folder you installed Artspo from, run:</p>
+    <div class="cmd"><code id="installCmd">sh install.sh</code><button type="button" class="ghost copy" data-copy="installCmd">Copy</button></div>
+    <p class="fine">No skill support? Nothing to install: the library carries its own instructions in <code>AGENTS.md</code>, written with your first clip. Point your agent at the library folder and start with "Read AGENTS.md first."</p>
+  </section>
+
+  <section id="s-inspect">
+    <h2><span class="n">4</span>Inspection</h2>
+    <p>Clipping is instant. The full inspection (screenshots, measurements, motion) runs once you've been idle for:</p>
+    <div class="row">
+      <select id="idle" aria-label="Idle time before inspecting">
+        <option value="60">1 minute</option>
+        <option value="120">2 minutes</option>
+        <option value="300">5 minutes</option>
+        <option value="600">10 minutes</option>
+      </select>
+      <span class="fine" id="idleSaved" hidden>Saved</span>
+    </div>
+  </section>
+
+  <section id="s-reconnect">
     <h2>Reconnect a library</h2>
-    <p>Use this after reinstalling Artspo, moving the extension folder, or setting it up on a new computer. Choose your <code>artspo</code> folder. Artspo reads the <code>clip.md</code> files in it and relearns your clips, notes and collections. Nothing in the folder is changed.</p>
-    <label class="pick" for="folder">Choose your artspo folder…
+    <p>After reinstalling Artspo, moving the extension, or on a new computer: choose your library folder, and Artspo relearns your clips, notes and collections from the <code>clip.md</code> files. Set the library folder above first. Nothing on disk changes.</p>
+    <label class="pick" for="folder">Choose your library folder…
       <input type="file" id="folder" webkitdirectory multiple hidden>
     </label>
     <div id="status" class="status" hidden></div>
@@ -24,10 +78,7 @@
     </div>
   </section>
 
-  <section>
-    <h2>What Artspo knows now</h2>
-    <p id="known">…</p>
-  </section>
+  <p class="known" id="known">…</p>
 </main>
 <script type="module" src="options.js"></script>
 </html>
