@@ -92,6 +92,15 @@ function mini(html) {
 // ================================================================ cards
 function swatches(list) { const s = el('div', 'sw'); for (const h of list) { const i = el('i'); i.style.background = h; s.append(i); } return s; }
 function shot(src, alt) { return src ? img(src, alt, 'shot') : el('div', 'shot blank mono', 'no preview'); }
+// in a book without screenshots a clip shows its measured surfaces, by share of the page
+function chips(k) {
+  const box = el('div', 'shot chips-shot');
+  const surf = k.sheet.surfaces.filter((x) => x.c);
+  for (const x of surf.length ? surf : k.swatches.map((c) => ({ c, pct: 1 }))) { const d = el('i'); d.style.background = x.c; d.style.flex = `${Math.max(x.pct, 4)} 1 0`; box.append(d); }
+  const t = s0(k); if (t) { const b = el('b', '', 'Aa'); b.style.cssText = `font-family:${fontStack(t.family)};font-weight:${t.weight};color:${t.c}`; box.append(b); }
+  return box;
+}
+function s0(k) { const s = k.sheet; const f = s.display || s.scale?.[0]; if (!f) return null; const bg = s.surfaces.find((x) => x.c)?.c || '#fff'; return { family: f.family, weight: f.weight, c: (s.text.find((t) => Math.abs(lum(t.c) - lum(bg)) > 0.3) || s.text[0])?.c || onColor(bg) }; }
 function head(it, layer, right) {
   const r = el('div', 'row');
   r.append(el('span', `idx ${layer}`, LETTER[layer]), el('span', 'acc mono', it.key));
@@ -119,12 +128,13 @@ function langCard(l) {
   b.append(head(l, 'pattern', el('span', `pill ${l.status}`, l.status)));
   if (l.specimen) b.append(mini(l.specimen));
   b.append(el('h3', '', l.title));
+  if (l.from_book) b.append(el('div', 'from mono', `from ${l.from_book}`));
   if (l.swatches.length) b.append(swatches(l.swatches));
   b.append(el('p', '', l.summary));
   const t = el('div', 'thumbs');
   for (const k of [...l.evidence, ...(l.partial || [])].slice(0, 5)) { const cl = clip(k); if (cl?.img) t.append(img(cl.img, cl.title)); }
   const n = usedIn(l), r = el('div', 'row');
-  r.append(t, el('span', 'lineage grow', `${l.evidence.length} clip${l.evidence.length === 1 ? '' : 's'}${n ? ' · used in ' + n : ''}`));
+  r.append(t, el('span', 'lineage grow', l.from_book && !l.evidence.length ? (n ? `used in ${n}` : '') : `${l.evidence.length} clip${l.evidence.length === 1 ? '' : 's'}${n ? ' · used in ' + n : ''}`));
   b.append(r);
   c.append(b); return c;
 }
@@ -133,9 +143,12 @@ function techCard(t) {
   const r = el('div', 'row'); r.append(el('span', 'idx pattern', 'P'), el('span', 'acc mono', t.facet), el('span', `pill ${t.status} grow`, t.status));
   b.append(r);
   if (t.specimen) b.append(mini(t.specimen));
-  b.append(el('h3', '', t.title), el('p', '', t.summary));
+  b.append(el('h3', '', t.title));
+  if (t.from_book) b.append(el('div', 'from mono', `from ${t.from_book}`));
+  b.append(el('p', '', t.summary));
   const n = usedIn(t);
-  b.append(el('div', 'lineage', `${t.evidence.length} clip${t.evidence.length === 1 ? '' : 's'}${n ? ' · used in ' + n + ' work' + (n === 1 ? '' : 's') : ''}${t.starred ? ' · starred' : ''}`));
+  const nc = t.from_book && !t.evidence.length ? '' : `${t.evidence.length} clip${t.evidence.length === 1 ? '' : 's'}`;
+  b.append(el('div', 'lineage', [nc, n ? `used in ${n} work${n === 1 ? '' : 's'}` : '', t.starred ? 'starred' : ''].filter(Boolean).join(' · ')));
   c.append(b); return c;
 }
 function clipCard(k) {
@@ -146,7 +159,7 @@ function clipCard(k) {
   if (k.note) b.append(el('div', 'note', k.note)); else if (!D.public) b.append(el('div', 'note empty', 'No note yet'));
   const np = near(k.id).size, nm = k.sheet.motion.length;
   b.append(el('div', 'lineage', `cited by ${np} pattern${np === 1 ? '' : 's'} · ${nm} motion${nm === 1 ? '' : 's'}${k.frames.length ? ' · ' + k.frames.length + ' frames' : ''}`));
-  c.append(shot(k.img, k.title + ' as it looked when clipped'), b); return c;
+  c.append(k.img || !D.public ? shot(k.img, k.title + ' as it looked when clipped') : chips(k), b); return c;
 }
 
 // ================================================================ grid
@@ -172,10 +185,11 @@ for (const [f, name] of FACETS) {
 D.clips.slice().sort((a, b) => b.clipped.localeCompare(a.clipped)).forEach((k) => $('#g-clips').append(clipCard(k)));
 const foot = $('#foot');
 foot.append(el('span', 'mono', D.public ? `Built ${D.built}` : `Built ${D.built} from ${D.library}`));
-if (D.public) foot.append(el('span', '', 'Screenshots and measurements belong to the sites they came from and are shown for reference, with links. Patterns, specimens and works are our own.'));
+if (D.public) foot.append(el('span', '', D.clips.some((k) => k.img) ? 'Screenshots and measurements belong to the sites they came from and are shown for reference, with links. Patterns, specimens and works are our own.' : 'Measurements come from the sites named, with links. Patterns, specimens and works are our own.'));
+if (D.book) { const a = el('a', 'mono', 'artbook.md'); a.href = 'artbook.md'; foot.append(a); }
 if (D.superseded) foot.append(el('span', 'mono', `${D.superseded} superseded clip${D.superseded === 1 ? '' : 's'} hidden`));
 foot.append(el('span', 'mono', D.public ? 'Made with Artspo' : 'Rebuild: python3 catalogue.py'));
-if (D.title) { const b = document.querySelector('.brand'); b.textContent = ''; b.append(el('b', '', D.title), el('span', '', 'an Artspo catalogue')); document.title = D.title; }
+if (D.title) { const b = document.querySelector('.brand'); b.textContent = ''; b.append(el('b', '', D.title), el('span', '', D.book ? 'an Artspo book' : 'an Artspo catalogue')); document.title = D.title; }
 
 let layer = 'all', q = '', starOnly = false, coll = D.scope || '', inColl = null;
 // a collection is a project: its clips, the works made for it, and the patterns they touch
@@ -187,17 +201,28 @@ function collectionSet(c) {
   for (const id of [...set]) for (const [o] of near(id)) if (items.get(o).type !== 'clip' && items.get(o).type !== 'work') set.add(o);
   return set;
 }
+function useBook(box) {
+  const u = el('div', 'use');
+  const t = el('div', 'use-t');
+  t.append(el('b', '', 'Take anything here to your own AI.'), el('span', '', ' Open a pattern or work and press Copy prompt, or give your agent the whole book:'));
+  const line = `Use ${D.url || location.href.replace(/[#?].*$/, '').replace(/index\.html$/, '')}artbook.md as your design reference.`;
+  const row = el('div', 'path'); const code = el('code', '', line);
+  const cp = el('button', 'btn', 'Copy'); cp.type = 'button'; cp.addEventListener('click', () => copy(line, cp));
+  const a = el('a', 'btn', 'artbook.md'); a.href = 'artbook.md'; a.target = '_blank';
+  row.append(code, cp, a); u.append(t, row); box.append(u);
+}
 function renderBrief() {
   const box = $('#brief'); box.textContent = '';
   const c = (D.collections || []).find((x) => x.key === coll);
-  box.hidden = !c;
-  if (!c) return;
+  box.hidden = !c && !D.book;
+  if (!c) { if (D.book) useBook(box); return; }
   const head = el('div', 'brief-h');
   head.append(el('span', 'mono', `collection · ${c.key}`), el('h2', '', c.title));
   box.append(head);
   box.append(c.brief ? el('p', 'brief-t', c.brief) : el('p', 'note empty', D.public ? '' : 'No brief yet. Add one in Artspo setup: what is this collection for?'));
   const n = D.clips.filter((k) => k.collection === c.key).length, nw = D.works.filter((w) => inColl.has(w.id)).length;
   box.append(el('div', 'lineage', `${n} clip${n === 1 ? '' : 's'} · ${nw} work${nw === 1 ? '' : 's'}${c.links.length ? ` · ${c.links.length} added as a list` : ''}`));
+  if (D.book) useBook(box);
 }
 {
   const sel = $('#coll');
@@ -258,13 +283,14 @@ const TABS = {
   pattern: [['specimen', 'Specimen'], ['evidence', 'Evidence'], ['recipe', 'Recipe']],
   work: [['preview', 'Preview'], ['files', 'Files']],
 };
+const tabsFor = (it) => TABS[LAYER[it.type]].filter(([k]) => k !== 'screens' || it.img || it.frames.length || it.full);
 const visibleOrder = () => [...document.querySelectorAll('main > section[data-layer]:not([hidden]) .card:not(.filtered-out)')].map((c) => c.dataset.id);
 function openViewer(id, tab) {
   const it = items.get(id); if (!it) return;
   const L = LAYER[it.type];
   if (!V.id) V.order = visibleOrder();
   if (!V.order.includes(id)) V.order = visibleOrder().includes(id) ? visibleOrder() : [...V.order, id];
-  V.id = id; V.tab = tab && TABS[L].some(([k]) => k === tab) ? tab : TABS[L][0][0];
+  V.id = id; V.tab = tab && tabsFor(it).some(([k]) => k === tab) ? tab : tabsFor(it)[0][0];
   const v = $('#viewer'); v.hidden = false; document.body.classList.add('viewing');
   const ix = $('#v-idx'); ix.className = `idx ${L}`; ix.textContent = LETTER[L];
   $('#v-kind').textContent = it.type === 'technique' ? `technique · ${it.facet}` : it.type === 'work' ? `work · ${it.kind || ''}` : it.type === 'clip' ? `clip · ${it.host}` : 'language';
@@ -272,7 +298,7 @@ function openViewer(id, tab) {
   const pos = V.order.indexOf(id);
   $('#v-pos').textContent = `${pos + 1} / ${V.order.length}`;
   const tabs = $('#v-tabs'); tabs.textContent = '';
-  TABS[L].forEach(([k, name], i) => {
+  tabsFor(it).forEach(([k, name], i) => {
     const b = el('button', 'tab', name); b.type = 'button'; b.setAttribute('aria-selected', String(k === V.tab)); b.title = `${name} (${i + 1})`;
     b.addEventListener('click', () => openViewer(id, k)); tabs.append(b);
   });
@@ -297,7 +323,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { e.preventDefault(); closeViewer(); }
   else if (!typing && e.key === 'ArrowRight') { e.preventDefault(); step(1); }
   else if (!typing && e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
-  else if (!typing && /^[1-3]$/.test(e.key)) { const t = TABS[LAYER[items.get(V.id).type]][+e.key - 1]; if (t) openViewer(V.id, t[0]); }
+  else if (!typing && /^[1-3]$/.test(e.key)) { const t = tabsFor(items.get(V.id))[+e.key - 1]; if (t) openViewer(V.id, t[0]); }
 });
 
 function chipFor(id) {
@@ -311,8 +337,19 @@ function meta(pairs) {
   for (const [k, v] of pairs) { if (!v) continue; dl.append(el('dt', '', k)); const dd = el('dd'); if (v instanceof Node) dd.append(v); else dd.textContent = v; dl.append(dd); }
   return dl;
 }
+function promptBox(it) {
+  const box = el('div', 'prompt');
+  const cp = el('button', 'btn primary', 'Copy prompt'); cp.type = 'button'; cp.addEventListener('click', () => copy(it.prompt, cp));
+  const peek = el('button', 'btn', 'Show'); peek.type = 'button';
+  const pre = el('pre', 'code', it.prompt); pre.hidden = true;
+  peek.addEventListener('click', () => { pre.hidden = !pre.hidden; peek.textContent = pre.hidden ? 'Show' : 'Hide'; });
+  const r = el('div', 'row'); r.append(cp, peek);
+  box.append(r, el('div', 'hint', it.type === 'work' ? 'Paste into any AI to make your own in this spirit: the brief, the reasoning and every pattern it used.' : 'Paste into any AI: the whole pattern, its tokens or recipe, and a reference specimen.'), pre);
+  return box;
+}
 function renderSide(it) {
   const side = $('#v-side'); side.textContent = '';
+  if (it.prompt) side.append(promptBox(it));
   if (it.type === 'clip') {
     const a = el('a', '', it.host); a.href = it.url; a.target = '_blank'; a.rel = 'noopener';
     if (it.note) side.append(el('p', 'verdict', it.note)); else if (!D.public) side.append(el('p', 'note empty', 'No note yet. Add one from the extension popup: it tells your agent why you saved this.'));
@@ -324,7 +361,9 @@ function renderSide(it) {
     side.append(meta([['status', it.status], ['kind', it.kind], ['made', it.made], ['by', it.made_by]]));
   } else {
     side.append(el('p', '', it.summary));
-    side.append(meta([['status', it.status], ['facet', it.facet], ['updated', it.updated], ['starred', it.starred ? 'yes' : '']]));
+    let from = it.from_book;
+    if (from && /^https?:/.test(it.source)) { from = el('a', '', it.from_book); from.href = it.source; from.target = '_blank'; from.rel = 'noopener'; }
+    side.append(meta([['from', from], ['status', it.status], ['facet', it.facet], ['updated', it.updated], ['starred', it.starred ? 'yes' : '']]));
   }
   const groups = new Map();
   for (const [o, label] of near(it.id)) (groups.get(label) || groups.set(label, []).get(label)).push(o);
@@ -644,6 +683,7 @@ function patSpecimen(p, st) {
   }
 }
 function patEvidence(p, st) {
+  if (p.from_book && !p.proof.length) { st.append(el('p', 'note empty', `Imported from ${p.from_book}. Its evidence lives in that book.`)); return; }
   const b = blk(`Evidence · ${p.proof.length}`, el('span', 'hint', 'verbatim from clip.md, or observed in a screenshot'));
   const list = el('div', 'proof');
   for (const e of p.proof) {

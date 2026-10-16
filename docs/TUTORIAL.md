@@ -65,7 +65,9 @@ making the next one.
 **Catalogue ↗** in the popup opens `catalogue.html`: every clip, pattern and work, with clips rebuilt from their
 measurements and patterns playing live. Arrow keys flip through.
 
-To share it, ask your agent to "publish a public edition of my catalogue", or see **Share it** in the README.
+To share it, ask your agent to "publish my library as a book on GitHub Pages". A book has a **Copy prompt** on every
+pattern and work, and an `artbook.md` that agents can read from the link. To use a friend's book, ask your agent to
+import it. [SHARING.md](SHARING.md) has the details.
 
 ## Good to know
 

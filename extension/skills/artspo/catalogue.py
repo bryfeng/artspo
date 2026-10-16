@@ -11,6 +11,11 @@ Usage:  python3 catalogue.py [LIBRARY] [options]
   --public       the public edition: leaves out private and logged-in clips, your notes, site text,
                  full-page shots, filmstrips, raw clip.md and file paths. Prints what it left out.
   --with-notes   with --public: keep your notes
+  --thumbnails   with --public: show each clip's screenshot (by default clips appear only as rebuilt element sheets)
+  --url URL      with --site: the address the book will live at (https://you.github.io/artbook/). Gives shared
+                 links a preview image; a domain that isn't github.io also gets a CNAME file for GitHub Pages
+  --cover FILE   with --site: your own social card image (1200×630). Default: paint chips from your languages
+  --description TEXT  with --site: the line shown under the title in link previews
   --title TEXT   name shown in the header (e.g. "Sam's Artspo")
   --collection NAME   only that collection: its brief, its clips, the works made for it, and the patterns they use
 
@@ -19,6 +24,11 @@ Examples
   python3 catalogue.py --public --site ~/artspo-site          public site folder to deploy
   python3 catalogue.py --public --embed --out ~/artspo.html   public single file
   python3 catalogue.py --public --site ~/launch --collection fintech-launch   share one collection
+  python3 catalogue.py --public --site ~/code/artbook --url https://you.github.io/artbook/   a book for GitHub Pages
+
+Every --site folder is a book: index.html for people, artbook.md for agents (every pattern and work as a
+standalone prompt), cover.png for link previews. Anyone can import a book into their own library with
+import_book.py.
 
 Python 3.8+, standard library only. Reads files, never changes them except the output page.
 The page itself is assembled from catalogue.html.in, catalogue.css and catalogue.js next to this script.
@@ -32,6 +42,8 @@ import re
 import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+from book import artbook, cover_png, pattern_prompt, portable, work_prompt  # noqa: E402
 RESERVED = {"patterns", "reports", "works", "_generated", "skills", "icons", "inject", "lib", "popup", "offscreen", "node_modules"}
 
 
@@ -351,13 +363,20 @@ def scope_to(collection, clips, patterns, works, collections):
 
 
 def read_patterns(lib):
+    """Your patterns, then any imported from other people's books (patterns/imported/<book>/…).
+    An imported pattern's key is id@book, so it never collides with one of yours."""
     out = []
     root = lib / "patterns"
     if not root.exists():
         return out
-    for f in sorted(root.glob("languages/*.md")) + sorted(root.glob("techniques/*/*.md")):
+    files = [(f, "") for f in sorted(root.glob("languages/*.md")) + sorted(root.glob("techniques/*/*.md"))]
+    for b in sorted(p for p in (root / "imported").glob("*") if p.is_dir()):
+        files += [(f, b.name) for f in sorted(b.glob("languages/*.md")) + sorted(b.glob("techniques/*/*.md"))]
+    for f, book in files:
         fm, body = frontmatter(f.read_text(encoding="utf-8", errors="replace"))
         kind = fm.get("kind") or ("language" if f.parent.name == "languages" else "technique")
+        tag = (lambda k: f"{k}@{book}") if book else (lambda k: k)
+        langs = fm.get("languages") or []
         feel = re.search(r"^_(.+)_$", body, re.M)
         evidence = []
         for l in bullets(section(body, "Evidence")):
@@ -372,10 +391,12 @@ def read_patterns(lib):
             evidence.append(dict(name=m.group(1), quote=q, source="clip.md" if src not in ("seen.jpg", "full.jpg") else src, clip=clip_key))
         spec = code_blocks(section(body, "Specimen"), "html")
         out.append(dict(
-            type=kind, key=fm.get("id", f.stem), title=title_of(body) or f.stem, facet=fm.get("facet", ""),
+            type=kind, key=tag(fm.get("id", f.stem)), id_raw=fm.get("id", f.stem), title=title_of(body) or f.stem,
+            facet=fm.get("facet", "") or (f.parent.name if kind == "technique" else ""),
             status=fm.get("status", ""), starred=bool(fm.get("starred")),
             evidence=[key_of(e) for e in fm.get("evidence") or []], partial=[key_of(e) for e in fm.get("partial") or []],
-            languages=fm.get("languages") or [], updated=str(fm.get("updated", "")),
+            languages=[tag(l) for l in langs], languages_raw=langs, updated=str(fm.get("updated") or fm.get("imported") or ""),
+            from_book=fm.get("from", "") if book else "", source=fm.get("source", "") if book else "", md=portable(body),
             summary=(feel.group(1) if (kind == "language" and feel) else first_para(body)),
             swatches=hexes(section(body, "Starter tokens"), 6) if kind == "language" else [],
             specimen=spec[0] if spec else "",
@@ -409,7 +430,7 @@ def read_works(lib):
                 made_by=fm.get("made_by", ""), made=str(fm.get("made", d.name[:10])),
                 patterns=fm.get("patterns") or [], clips=[key_of(c) for c in fm.get("clips") or []],
                 files=files, texts=texts, html=f"{base}/{d.name}/{html}" if html else "",
-                summary=first_para(body), verdict="" if verdict.startswith("_") else verdict,
+                summary=first_para(body), verdict="" if verdict.startswith("_") else verdict, brief=section(body, "Brief"),
                 made_from=section(body, "Made from"), left_out=section(body, "Left out"),
                 img=f"{base}/{d.name}/{prev}" if prev and (d / prev).exists() else "", dir=f"{base}/{d.name}",
                 path=f"{base}/{d.name}/work.md" if f.exists() else f"{base}/{d.name}/"))
@@ -446,7 +467,7 @@ GENERIC = "Sphinx of black quartz, judge my vow"
 QUOTED = re.compile(r'\s*"[^"]*"')
 
 
-def public_edition(clips, patterns, works, with_notes=False):
+def public_edition(clips, patterns, works, with_notes=False, thumbnails=False):
     """Drop what shouldn't leave your machine. Returns (clips, removed) — removed is [(title, reason)]."""
     keep, removed = [], []
     for c in clips:
@@ -466,6 +487,8 @@ def public_edition(clips, patterns, works, with_notes=False):
             m["label"] = QUOTED.sub("", m["label"]).strip(", ") or "element"
             m["raw"] = ""
         c.update(record="", full="", frames=[], tagline="", path="", tags=[])
+        if not thumbnails:  # by default a public book shows no one else's pixels: clips appear as rebuilt element sheets
+            c["img"] = ""
         if not with_notes:
             c["note"] = ""
         keep.append(c)
@@ -506,8 +529,26 @@ def write_site(lib, site, clips, works):
         w["img"], w["html"] = rebase(w["img"]), rebase(w["html"])
 
 
+def head_tags(title, description, url, cover):
+    """<title> plus the tags that make a shared link preview well (Open Graph, X) and point agents at artbook.md."""
+    esc = lambda t: str(t).replace("&", "&amp;").replace('"', "&quot;").replace("<", "&lt;")
+    img = (url + cover) if url and cover else cover
+    tags = [f"<title>{esc(title)}</title>",
+            f'<meta name="description" content="{esc(description)}">',
+            f'<meta property="og:type" content="website">',
+            f'<meta property="og:title" content="{esc(title)}">',
+            f'<meta property="og:description" content="{esc(description)}">',
+            f'<link rel="alternate" type="text/markdown" href="artbook.md" title="This book as Markdown, for agents">']
+    if url:
+        tags.append(f'<meta property="og:url" content="{esc(url)}">')
+    if img:
+        tags += [f'<meta property="og:image" content="{esc(img)}">', '<meta property="og:image:width" content="1200">',
+                 '<meta property="og:image:height" content="630">', '<meta name="twitter:card" content="summary_large_image">']
+    return "\n".join(tags)
+
+
 def main(argv):
-    opts = {"--out": None, "--site": None, "--title": None, "--collection": None}
+    opts = {"--out": None, "--site": None, "--title": None, "--collection": None, "--url": None, "--cover": None, "--description": None}
     flags, args, i = set(), [], 0
     while i < len(argv):
         a = argv[i]
@@ -517,7 +558,7 @@ def main(argv):
             continue
         (flags.add if a.startswith("--") else args.append)(a)
         i += 1
-    unknown = flags - {"--embed", "--public", "--with-notes"}
+    unknown = flags - {"--embed", "--public", "--with-notes", "--thumbnails"}
     if unknown:
         sys.exit(f"Unknown option {', '.join(sorted(unknown))}. See: python3 catalogue.py --help" if "--help" not in flags else __doc__)
     lib = pathlib.Path(args[0] if args else "~/Downloads/artspo").expanduser().resolve()
@@ -527,6 +568,13 @@ def main(argv):
     site = pathlib.Path(opts["--site"]).expanduser().resolve() if opts["--site"] else None
     if embed and site:
         sys.exit("Use --embed (one file) or --site DIR (a folder), not both.")
+    url = opts["--url"]
+    if url:
+        if not re.match(r"^https?://[^/\s]+", url):
+            sys.exit("--url must be the address the site will live at, e.g. https://you.github.io/artbook/")
+        url = url.rstrip("/") + "/"
+        if not site:
+            sys.exit("--url only applies with --site DIR.")
 
     clips, superseded = read_clips(lib)
     patterns = read_patterns(lib)
@@ -538,11 +586,36 @@ def main(argv):
             opts["--title"] = collections[0]["title"]
     removed = []
     if public:
-        clips, removed = public_edition(clips, patterns, works, "--with-notes" in flags)
+        clips, removed = public_edition(clips, patterns, works, "--with-notes" in flags, "--thumbnails" in flags)
+    built = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    book = dict(title=opts["--title"] or "", url=url or "", built=built,
+                brief=collections[0]["brief"] if opts["--collection"] and collections else "")
+    for p in patterns:
+        p["prompt"] = pattern_prompt(p, book)
+    for w in works:
+        w["prompt"] = work_prompt(w, patterns, book)
+    langs = [p for p in patterns if p["type"] == "language"]
+    description = opts["--description"] or book["brief"] or (
+        f"{len(langs)} design language{'s' * (len(langs) != 1)}, {len(patterns) - len(langs)} techniques and "
+        f"{len(works)} work{'s' * (len(works) != 1)}, measured from real websites, each with a prompt you can copy. Made with Artspo.")
+    head = "<title>Artspo Catalogue</title>"
     if site:
         site.mkdir(parents=True, exist_ok=True)
         write_site(lib, site, clips, works)
         out = site / "index.html"
+        (site / "artbook.md").write_text(artbook(book, patterns, works), encoding="utf-8")
+        if opts["--cover"]:
+            src = pathlib.Path(opts["--cover"]).expanduser()
+            cover = "cover" + (src.suffix.lower() or ".png")
+            (site / cover).write_bytes(src.read_bytes())
+        else:
+            cover = "cover.png"
+            (site / cover).write_bytes(cover_png([p["swatches"] for p in langs]))
+        (site / ".nojekyll").write_text("", encoding="utf-8")  # GitHub Pages: serve the folder as it is
+        host = re.sub(r"^https?://([^/:]+).*$", r"\1", url) if url else ""
+        if host and not host.endswith(".github.io"):
+            (site / "CNAME").write_text(host + "\n", encoding="utf-8")  # GitHub Pages: your own domain
+        head = head_tags(book["title"] or "An Artspo book", description, url, cover)
     else:
         out = pathlib.Path(opts["--out"]).expanduser() if opts["--out"] else lib / "catalogue.html"
         if embed:
@@ -553,12 +626,15 @@ def main(argv):
             for it in works:
                 it["img"] = embed_image(lib, it["img"], 960, 600) if it["img"] else ""
                 it["html"] = ""
+    for p in patterns:
+        p.pop("md", None)  # already in the prompt
     data = dict(
         title=opts["--title"] or "", library="" if public else str(lib).replace(str(pathlib.Path.home()), "~"),
-        built=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), embedded=embed or public, public=public,
+        built=built, embedded=embed or public, public=public, book=bool(site), url=url or "",
         superseded=0 if public else superseded, clips=clips, patterns=patterns, works=works,
         collections=collections, scope=opts["--collection"] or "")
     page = ((HERE / "catalogue.html.in").read_text(encoding="utf-8")
+            .replace("%%HEAD%%", head)
             .replace("%%CSS%%", (HERE / "catalogue.css").read_text(encoding="utf-8"))
             .replace("%%JS%%", (HERE / "catalogue.js").read_text(encoding="utf-8"))
             .replace("%%DATA%%", json.dumps(data, ensure_ascii=False).replace("</", "<\\/")))
@@ -572,7 +648,12 @@ def main(argv):
         print(f"  left out: {title} — {why}")
     if public:
         print("  also left out: notes" + ("" if "--with-notes" not in flags else " (kept: --with-notes)")
-              + ", page text, full-page shots, filmstrips, raw clip.md, work .md files, file paths")
+              + ", page text, full-page shots, filmstrips, raw clip.md, work .md files, file paths"
+              + ("" if "--thumbnails" in flags else ", clip screenshots (add --thumbnails to show them)"))
+    if site:
+        print(f"  book: artbook.md (for agents), {cover} (social card)" + (", CNAME" if (site / "CNAME").exists() and url else ""))
+        if not url:
+            print("  tip: add --url https://you.github.io/<repo>/ so shared links get a preview image")
 
 
 if __name__ == "__main__":

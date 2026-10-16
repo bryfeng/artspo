@@ -1,6 +1,6 @@
 ---
 name: artspo
-description: Use when the user wants design, branding or UI work drawn from their Artspo library — websites they clipped as inspiration, stored as clip.md folders (usually ~/Downloads/artspo). Covers reading clips, analyzing the library into reusable patterns and a report, making works (tokens, motion specs, pages) from patterns and clips, rebuilding the catalogue page, and publishing a public edition of it.
+description: Use when the user wants design, branding or UI work drawn from their Artspo library — websites they clipped as inspiration, stored as clip.md folders (usually ~/Downloads/artspo). Covers reading clips, analyzing the library into reusable patterns and a report, making works (tokens, motion specs, pages) from patterns and clips, rebuilding the catalogue page, publishing it as a shareable book with copyable prompts, and importing other people's books.
 ---
 
 # Artspo
@@ -39,6 +39,7 @@ artspo/
     INDEX.md                        every pattern, one line each; starred first
     languages/<id>.md
     techniques/<color|type|shape|layout|motion>/<id>.md
+    imported/<book>/                patterns from someone else's book (import_book.py). Read-only: re-import to update
   works/
     <date>_<short-name>/
       work.md                       the record: what it is, what it came from, the user's verdict
@@ -214,35 +215,51 @@ The more exact clip.md and the specimens are, the better it shows. The extension
 (Catalogue ↗). If you can't run Python, say so and skip it: the files are the source of truth, and the page is
 only a view.
 
-## Publish the catalogue
+## Publish a book
 
-When the user wants to share the catalogue outside their own machine, always build the **public edition**:
+A published catalogue is a **book**: a page people browse, where every pattern and work has a **Copy prompt** that
+stands alone (the whole pattern, its tokens or recipe, a reference specimen, and the rules), plus `artbook.md`, the
+same book as one Markdown file for agents. Always build the public edition.
 
-1. **Build it.** Pick the output for where it's going:
-   - a folder for a static host (GitHub Pages, Netlify, Cloudflare Pages, any web server):
-     `python3 catalogue.py ~/Downloads/artspo --public --site ~/artspo-site --title "<Name>'s Artspo"`
-   - one self-contained file (to send, or to publish as a single page):
-     `python3 catalogue.py ~/Downloads/artspo --public --embed --out ~/artspo-catalogue.html --title "…"`
+1. **Build it.** For a link people will share, build a site folder with the address it will live at:
+   `python3 catalogue.py ~/Downloads/artspo --public --site ~/code/artbook --title "<Name>'s artbook" --url https://<user>.github.io/artbook/`
+   - `--url` gives shared links a preview card (`cover.png`, made from the languages' colors; `--cover FILE` for
+     your own 1200×630 image, e.g. a screenshot of the page). A domain that isn't github.io also gets a `CNAME` file.
+   - `--collection <name>` makes a book of one collection: its brief, clips, the works made for it, their patterns.
+   - Clips appear as rebuilt element sheets with no screenshots. Add `--thumbnails` only if the user wants each
+     site's screenshot shown; it's their call, since those images belong to the sites.
+   - One self-contained file instead of a folder: `--public --embed --out FILE` (no artbook.md or cover).
 2. **Show the user what was left out.** The script prints it: clips marked `private: true`, clips that look like
    logged-in pages (app., dashboard, workspace URLs), plus notes, page text, full-page shots, filmstrips, raw
    clip.md and file paths, which the public edition always drops. Ask before publishing if anything listed
    looks wrong. A logged-in clip goes public only if the user sets `public: true` in its clip.md themselves.
    Notes go public only with `--with-notes`, and only if the user asks for it.
-3. **Check what's left.** Search the output for the user's name, email, workspace or account IDs. Patterns and
-   works are written by agents and can quote clips; fix the source file if anything personal slipped in.
-4. **Publish where the user says.** Deploy the folder or upload the file with the tools you have, or tell the
-   user the exact command (e.g. `npx netlify deploy --dir ~/artspo-site --prod`). If they don't say where, ask.
-   Never publish without the user's go-ahead.
+3. **Check what's left.** Search `index.html` and `artbook.md` for the user's name, email, workspace or account IDs.
+   Patterns and works are written by agents and can quote clips; fix the source file if anything personal slipped in.
+4. **Publish where the user says**, never without their go-ahead. GitHub Pages (the repo's `docs/SHARING.md` has
+   the steps): the site folder is a git repo pushed to GitHub, with Pages set to deploy from the main branch root.
+   To update, rebuild into the same folder, commit and push. Any static host works too.
 5. **Report the link** and what's in it (counts of works, patterns and clips).
 
-**Sharing one collection.** Add `--collection <name>`: the page opens on that collection's brief and holds only its
-clips, the works made for it, and the patterns they use. For a friend who also uses Artspo, you can instead hand
-over the files: the collection folder (with `collection.md`), the works whose `collection:` is that name, and the
-pattern files they list. Apply the same privacy check first.
+For a friend who also uses Artspo, a book is the way to share: they import it (below). Handing over files works too:
+the collection folder (with `collection.md`), the works whose `collection:` is that name, and the pattern files
+they list. Apply the same privacy check first.
 
-The public edition keeps each clip's screenshot as a reference thumbnail with a link to the site, plus its rebuilt
-elements and measurements. Screenshots and measurements belong to those sites; the page says so in its footer.
-Patterns, specimens and works are the user's own.
+## Import a book (remix)
+
+When the user wants to use someone else's book ("add Sam's artbook to my library", or gives a book link):
+
+```
+python3 <this skill's folder>/import_book.py https://sam.github.io/artbook/ ~/Downloads/artspo
+```
+
+If the download fails (no network), fetch `<book>/artbook.md` with your own tools, save it, and pass the file.
+Patterns land in `patterns/imported/<book>/`, each crediting its source. Then:
+- Refer to an imported pattern as `<id>@<book>` (`soft-rise-reveal@sams-artbook`), including in a work's `patterns:`.
+- Never edit imported files; re-running the import replaces them. To adapt one, write your own pattern that cites
+  it under `## Pairs with`, and back it with the user's clips if you can.
+- Imported patterns have no clips in this library. Treat them as recipes, and say when a choice rests on one.
+- Without importing, any agent can use a book directly: read its `artbook.md` (or take one Copy prompt).
 
 ## Rules
 
@@ -253,6 +270,7 @@ Patterns, specimens and works are the user's own.
 - **Attribute every choice** to a pattern, and every pattern to clip folder names.
 - **Don't edit clip.md** except to append a `## Deep dive` section (below).
 - **Don't decide for the user.** `starred`, a work's `status` beyond draft, and its Verdict are theirs.
+- **Credit books.** A choice that comes from an imported pattern names the book it came from.
 - **Privacy when sharing.** Publish only the public edition (above). Clips of logged-in pages can contain names and account IDs. Strip those from
   anything meant for other people; patterns should never contain them.
 

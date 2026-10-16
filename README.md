@@ -60,8 +60,18 @@ Give a collection a brief ("launch page for a calm writing tool: warm, one quiet
 want clipped, without visiting each one. They're inspected while you're idle like any other clip. Your agent reads
 the brief before it makes anything for that collection, and works made for it are filed under it.
 
-Share a whole library, or just one collection, as a page with one command. The public edition leaves out
-logged-in pages, your notes and page text.
+## Share a book
+
+Publish your library, or one collection, as a **book**: a page anyone can browse, where every pattern and work has a
+**Copy prompt** that works in any AI. The same book is one `artbook.md` file, so someone can tell their agent "use
+this book as your design reference" with just the link. Other Artspo users can import it and build with your
+patterns, credited to you.
+
+Books go on GitHub Pages (or any static host) with a preview card for when the link is posted. They leave out
+logged-in pages, your notes, page text, and by default the screenshots of the sites you clipped.
+[docs/SHARING.md](docs/SHARING.md) has the steps.
+
+![A shared book: copy any pattern as a prompt, or give your agent the whole book](docs/media/book.png)
 
 ## Install
 
@@ -108,7 +118,9 @@ Then ask your agent:
 
 > Make a landing page for my launch-moodboard collection.
 
-> Publish a public edition of my launch-moodboard collection.
+> Publish my launch-moodboard collection as a book on GitHub Pages.
+
+> Import https://sam.github.io/artbook/ into my library, then make a pricing page from its patterns and my clips.
 
 ## For agents
 
@@ -122,6 +134,7 @@ If you're an agent working with an Artspo library, read the skill first:
 | Patterns | `patterns/languages/*.md`, `patterns/techniques/<facet>/*.md`, `patterns/INDEX.md` | Knowledge: languages and techniques, each citing clips, with a recipe and an HTML specimen | You |
 | Works | `works/<date>_<name>/work.md` + files | What gets made, listing its patterns and clips; the user's verdict | You, or the user |
 | Catalogue | `catalogue.html` | A view of all three | `catalogue.py` |
+| Books | a site folder: `index.html` + `artbook.md` | The public edition, with a standalone prompt per pattern and work | `catalogue.py --site`; others' land in `patterns/imported/` via `import_book.py` |
 
 - **Trust in `clip.md`:** the Note is the user's intent and outranks everything. Palette, type, shape, buttons,
   and CSS/WAAPI/GSAP motion lines are measured exactly. Motion "sampled from inline styles" is approximate.
@@ -130,13 +143,15 @@ If you're an agent working with an Artspo library, read the skill first:
   copy, logos or imagery. Flag font licenses.
 - **The user decides.** Never change `starred`, a work's `status` beyond `draft`, or its `## Verdict`.
 - **Catalogue:** `python3 extension/skills/artspo/catalogue.py <library>` rebuilds the private page. Add
-  `--public --site <dir>` (or `--public --embed --out <file>`) for a shareable edition, and confirm with the user
-  before publishing anything.
+  `--public --site <dir> --url <address>` for a book, and confirm with the user before publishing anything.
+- **Someone else's book:** read its `artbook.md`, or import it with `import_book.py <link>`. Imported patterns
+  are `<id>@<book>` and stay read-only.
 
 ## More
 
 - [docs/TUTORIAL.md](docs/TUTORIAL.md): five-minute walkthrough
 - [docs/INSPECTION.md](docs/INSPECTION.md): what the inspection measures, how, and its limits
+- [docs/SHARING.md](docs/SHARING.md): publish a book, use your own domain, import someone else's
 - [docs/PRIVACY.md](docs/PRIVACY.md): what Artspo touches and where data goes (nowhere)
 - [docs/BACKLOG.md](docs/BACKLOG.md): what's planned
 - `sh package.sh` builds the extension zip for a Chrome Web Store upload
