@@ -8,9 +8,9 @@ Everything the developer dashboard asks for, ready to paste. Upload `dist/artspo
 **Name:** Artspo
 
 **Summary** (from the manifest, 132 characters max):
-Clip websites into collections. Measures design tokens and motion while you're idle, and writes files your AI agent can read.
+Save websites as design inspiration. Measures colors, fonts, design tokens and motion into files your AI coding agent builds from.
 
-**Category:** Developer Tools
+**Category:** Developer Tools (its scope includes CSS inspection; Art & Design is the runner-up)
 
 **Language:** English
 
@@ -38,10 +38,15 @@ Clip websites into collections. Measures design tokens and motion while you're i
   a book with a prompt open. Re-crop from `docs/media/`.
 - Small promo tile (440×280): the logo on the conic gradient, with "Clip the web's best design."
 
-**Homepage:** https://github.com/bryfeng/artspo
+**Homepage:** https://artbook.dev/?utm_source=chrome-web-store&utm_medium=listing&utm_campaign=artspo
 **Support:** https://github.com/bryfeng/artspo/issues
 
 **Visibility:** start **Unlisted**. Switch to Public once it has run well for a while.
+
+**Listing rules worth knowing:** keep any one keyword under 5 uses and name no more than 5 brands or sites in the
+description (the store's spam policy). The description already names Claude Code, Codex and Cursor; don't add a list
+of agents. Links to the listing from outside should carry `utm_source`/`utm_medium`/`utm_campaign`: the dashboard
+breaks listing views down by them.
 
 ## Privacy practices
 
@@ -89,6 +94,8 @@ closing, then open the clip's folder and its `clip.md`.
 
 1. Bump `version` in `extension/manifest.json` and the "Skill version" line in `extension/skills/artspo/SKILL.md`
    (`package.sh` refuses to build if they differ).
-2. `sh package.sh`, upload the extension zip, submit.
-3. Installed copies update on their own. The skill doesn't: agents tell the user when theirs is older than the
+2. Push to main. The release workflow publishes GitHub Release v<version> with both zips (and
+   `.github/release-notes/v<version>.md` as its notes, if you wrote one).
+3. Upload `artspo-extension-<version>.zip` from that release (or `sh package.sh`) to the store, submit.
+4. Installed copies update on their own. The skill doesn't: agents tell the user when theirs is older than the
    extension, and the install one-liner updates it.
