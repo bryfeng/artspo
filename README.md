@@ -93,6 +93,8 @@ from **Setup** in the popup.
 
 - **Updating:** `git pull`, click ↻ on Artspo in `chrome://extensions`, and run `sh install.sh` again. The skill
   alone can be installed or updated without a clone: `curl -fsSL https://raw.githubusercontent.com/bryfeng/artspo/main/install.sh | sh`
+- **Skill only, through your agent's installer:** in Claude Code, `/plugin install artspo --marketplace bryfeng/artspo`;
+  for any agent, `npx skills add bryfeng/artspo`. The extension still comes from the clone or release.
 - **One copy at a time.** Two installed copies of Artspo both answer Alt+Shift+S and write to the same library.
   Remove one in `chrome://extensions`.
 - **Library outside Downloads?** Chrome only lets extensions save inside Downloads, so setup gives you a one-line

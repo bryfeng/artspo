@@ -1,0 +1,25 @@
+{
+  "name": "artspo",
+  "owner": {
+    "name": "bryfeng",
+    "url": "https://github.com/bryfeng"
+  },
+  "metadata": {
+    "description": "Artspo: clip the web's best design and let your AI agent build from it",
+    "version": "0.7.1"
+  },
+  "plugins": [
+    {
+      "name": "artspo",
+      "description": "Read an Artspo design library (websites clipped and measured by the Artspo Chrome extension: palette, type, shape, motion), distill it into design languages and techniques, make tokens, motion specs and pages from it, and publish or import shareable books.",
+      "source": "./",
+      "strict": false,
+      "skills": ["./extension/skills/artspo"],
+      "homepage": "https://artbook.dev",
+      "repository": "https://github.com/bryfeng/artspo",
+      "license": "MIT",
+      "keywords": ["design", "design-system", "design-tokens", "motion", "inspiration", "chrome-extension"],
+      "category": "design"
+    }
+  ]
+}
