@@ -6,11 +6,11 @@
 
 <p align="center">
 A Chrome extension that measures the sites you save (color, type, shape, and the motion a screenshot misses),<br>
-and an agent skill that turns those clips into a design library you can browse, remix and share.
+and an agent skill for Claude Code, Codex and Cursor that turns those clips into a design library you can browse, remix and share.
 </p>
 
 <p align="center">
-<a href="#install">Install</a> · <a href="#for-agents">For agents</a> · <a href="docs/TUTORIAL.md">5-minute tutorial</a> · <a href="LICENSE">MIT</a>
+<a href="#install">Install</a> · <a href="#for-agents">For agents</a> · <a href="docs/TUTORIAL.md">5-minute tutorial</a> · <a href="https://artbook.dev/?utm_source=github&utm_medium=readme&utm_campaign=artspo">artbook.dev</a> · <a href="LICENSE">MIT</a>
 </p>
 
 ![The Artspo popup open over a website, with a note about what caught the user's eye](docs/media/hero.png)
@@ -99,7 +99,8 @@ from **Setup** in the popup.
   command that links a folder there to wherever you want it (Dropbox, iCloud, a projects folder).
 - **Moving or reinstalling the extension?** Its memory is tied to its folder, so it starts empty. Your clips are
   safe on disk: in setup, choose **Reconnect a library** and it relearns them.
-- **No git?** Use **Code → Download ZIP** on GitHub and unzip it somewhere permanent (not inside your library).
+- **No git?** Download `artspo-<version>.zip` from the [latest release](https://github.com/bryfeng/artspo/releases/latest) and unzip it
+  somewhere permanent (not inside your library).
 
 ## Use
 
