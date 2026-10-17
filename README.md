@@ -75,7 +75,8 @@ logged-in pages, your notes, page text, and by default the screenshots of the si
 
 ## Install
 
-You need Chrome 118 or newer. Python 3 is optional; agents use it to build the catalogue.
+Artspo is made for macOS and Chrome 118 or newer, with Claude Code, Codex or another coding agent. (Linux works
+too; Windows isn't supported.) Python 3 is optional; agents use it to build the catalogue and books.
 
 ```sh
 git clone https://github.com/bryfeng/artspo ~/code/artspo
@@ -90,7 +91,10 @@ folder. Pin Artspo to the toolbar. A setup page opens:
 Pick where clips go (default `Downloads/artspo`), name a few collections, and you're ready. Reopen it any time
 from **Setup** in the popup.
 
-- **Updating:** `git pull`, click ↻ on Artspo in `chrome://extensions`, and run `sh install.sh` again.
+- **Updating:** `git pull`, click ↻ on Artspo in `chrome://extensions`, and run `sh install.sh` again. The skill
+  alone can be installed or updated without a clone: `curl -fsSL https://raw.githubusercontent.com/bryfeng/artspo/main/install.sh | sh`
+- **One copy at a time.** Two installed copies of Artspo both answer Alt+Shift+S and write to the same library.
+  Remove one in `chrome://extensions`.
 - **Library outside Downloads?** Chrome only lets extensions save inside Downloads, so setup gives you a one-line
   command that links a folder there to wherever you want it (Dropbox, iCloud, a projects folder).
 - **Moving or reinstalling the extension?** Its memory is tied to its folder, so it starts empty. Your clips are
@@ -154,7 +158,7 @@ If you're an agent working with an Artspo library, read the skill first:
 - [docs/SHARING.md](docs/SHARING.md): publish a book, use your own domain, import someone else's
 - [docs/PRIVACY.md](docs/PRIVACY.md): what Artspo touches and where data goes (nowhere)
 - [docs/BACKLOG.md](docs/BACKLOG.md): what's planned
-- `sh package.sh` builds the extension zip for a Chrome Web Store upload
+- [docs/STORE.md](docs/STORE.md): the Chrome Web Store listing, permission justifications and release steps
 
 ## License
 

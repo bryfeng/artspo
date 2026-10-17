@@ -14,19 +14,18 @@ duplicating it.
 
 | Permission | Why |
 |---|---|
-| Access to all sites | to inspect whichever page you clip |
+| Access to all sites | to read the page you're clipping, screenshot it, and inspect it later |
 | `debugger` | to scroll the page with real input, capture full-page screenshots, and record motion from the first frame |
-| `tabs`, `activeTab` | to know which page you're clipping and screenshot it |
-| `downloads`, `offscreen` | to write files into your library folder |
+| `downloads`, `downloads.ui`, `offscreen` | to write files into your library folder, without flashing a download for each file |
 | `storage` | to remember your clips, collections and settings |
 | `idle`, `alarms` | to run inspections while you're away |
 
 **Network.** Inspection loads the page you clipped, plus any stylesheets it uses (to read its animations).
 Nothing else.
 
-**Sharing.** Your library stays on your computer until you or your agent publish something. The catalogue's
-public edition leaves out logged-in pages, your notes, page text and full-page screenshots. See **Share it** in
-the README.
+**Sharing.** Your library stays on your computer until you or your agent publish something. A published book
+leaves out logged-in pages, your notes, page text and, unless you ask for them, screenshots of the sites you
+clipped. See [SHARING.md](SHARING.md).
 
 **Removing it.** Remove the extension in `chrome://extensions` (this clears its list) and delete
 `Downloads/artspo` if you want the files gone too.

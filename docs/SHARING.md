@@ -19,6 +19,9 @@ The script prints everything it left out. Read it before you publish.
 
 ## Publish on GitHub Pages
 
+If you have GitHub's `gh` command-line tool signed in, your agent does every step below itself, including turning on
+Pages. Otherwise:
+
 1. On GitHub, create an empty public repository, say `artbook`.
 2. Build the book into a folder, giving it the address it will have:
 

@@ -6,6 +6,7 @@
 set -e
 cd "$(dirname "$0")"
 V=$(python3 -c "import json;print(json.load(open('extension/manifest.json'))['version'])")
+grep -q "Skill version $V\." extension/skills/artspo/SKILL.md || { echo "SKILL.md says a different skill version than manifest.json ($V). Update the 'Skill version' line."; exit 1; }
 mkdir -p dist
 rm -f "dist/artspo-$V.zip" "dist/artspo-extension-$V.zip"
 REPO=$(pwd); NAME=$(basename "$REPO")

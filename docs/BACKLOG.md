@@ -27,9 +27,8 @@ Implementation notes:
 - **Replica comparison.** Given a generated page, screenshot it at 1440×900 and diff it against the source clip's seen.jpg and timings.
 - **Enrich step.** Optional agent pass that appends a `## Deep dive` (REA or similar) for clips with privately bundled GSAP or WebGL.
 - **Gated agent bridge.** Let an agent request a clip or re-inspect through a local, user-approved channel instead of only reading files.
-- **Chrome Web Store listing.** `sh package.sh` builds the upload. Needs a listing (screenshots, the privacy text in
-  PRIVACY.md) and will get a slower review because of the `debugger` permission and access to all sites. An
-  unlisted listing is the easy first step: installs and updates without Developer mode.
+- **Chrome Web Store listing.** Prepared in STORE.md: needs the developer account, screenshots and promo tile at
+  store sizes, and the reviewer screencast. Start unlisted.
 - **Book that updates itself.** Today a book is a rebuild plus a push. A GitHub Action that rebuilds it when a
   synced library changes would make it hands-off.
 - **A shelf of books.** One page listing books people have shared, so they can find each other's. Needs a home and

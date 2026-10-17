@@ -14,7 +14,8 @@ you upload files to.
    pick the `extension` folder inside it. Pin Artspo to the toolbar.
    A setup page opens: keep the default library folder (`Downloads/artspo`) or pick another, and add a few
    collections.
-3. In a terminal, from the Artspo folder, run `sh install.sh` and restart your agent.
+3. In a terminal, from the Artspo folder, run `sh install.sh` and restart your agent. (Without the folder,
+   `curl -fsSL https://raw.githubusercontent.com/bryfeng/artspo/main/install.sh | sh` does the same.)
 
 `install.sh` copies the `artspo` skill into each agent's skills folder it finds. To do it by hand, copy
 `extension/skills/artspo/` into your agent's skills folder:

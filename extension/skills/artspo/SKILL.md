@@ -18,6 +18,10 @@ Artspo is a Chrome extension that clips websites as design inspiration. The libr
 Your job is to keep that chain intact: every work traces to patterns, every pattern traces to clips.
 `catalogue.html` shows all of it on one page, with that lineage clickable.
 
+Skill version 0.7.1. The library's `AGENTS.md` ends with the version of the extension that wrote it. If that's newer
+than this skill, tell the user once that their skill is out of date and how to update it:
+`curl -fsSL https://raw.githubusercontent.com/bryfeng/artspo/main/install.sh | sh`, then restart the agent.
+
 ## Find the library
 
 - Default location: `~/Downloads/artspo/` (Windows: `%USERPROFILE%\Downloads\artspo\`). The extension's setup can
@@ -236,9 +240,16 @@ same book as one Markdown file for agents. Always build the public edition.
    Notes go public only with `--with-notes`, and only if the user asks for it.
 3. **Check what's left.** Search `index.html` and `artbook.md` for the user's name, email, workspace or account IDs.
    Patterns and works are written by agents and can quote clips; fix the source file if anything personal slipped in.
-4. **Publish where the user says**, never without their go-ahead. GitHub Pages (the repo's `docs/SHARING.md` has
-   the steps): the site folder is a git repo pushed to GitHub, with Pages set to deploy from the main branch root.
-   To update, rebuild into the same folder, commit and push. Any static host works too.
+4. **Publish where the user says**, never without their go-ahead. For GitHub Pages with the `gh` CLI signed in
+   (`gh auth status`), do it all yourself from the site folder:
+   ```
+   git init -b main && git add -A && git commit -m "Artbook"
+   gh repo create <repo> --public --source . --push
+   gh api -X POST repos/<owner>/<repo>/pages -f "source[branch]=main" -f "source[path]=/"
+   ```
+   The book is live at `https://<owner>.github.io/<repo>/` a minute or two later. To update: rebuild into the same
+   folder, then commit and push. Without `gh`, give the user the steps in the repo's `docs/SHARING.md`. Any static
+   host works too.
 5. **Report the link** and what's in it (counts of works, patterns and clips).
 
 For a friend who also uses Artspo, a book is the way to share: they import it (below). Handing over files works too:

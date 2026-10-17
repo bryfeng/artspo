@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Artspo",
-  "version": "0.7.0",
-  "description": "Clip websites into collections. Inspects design tokens and motion while you're idle, and writes clip.md files your AI agent can read.",
+  "version": "0.7.1",
+  "description": "Clip websites into collections. Measures design tokens and motion while you're idle, and writes files your AI agent can read.",
   "minimum_chrome_version": "118",
   "action": {
     "default_popup": "popup/popup.html",
@@ -26,8 +26,6 @@
     "type": "module"
   },
   "permissions": [
-    "activeTab",
-    "tabs",
     "storage",
     "downloads",
     "downloads.ui",
