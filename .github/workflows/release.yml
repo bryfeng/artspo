@@ -1,28 +1,33 @@
-# Push a tag like v0.7.2 and this builds the zips with package.sh and publishes them as a GitHub Release.
-# The tag must match "version" in extension/manifest.json.
+# Bump "version" in extension/manifest.json, push to main, and this publishes a GitHub Release v<version>
+# with the two zips from package.sh (it creates the tag too). Does nothing if that release already exists.
+# Optional notes: .github/release-notes/v<version>.md (otherwise GitHub writes them from the commits).
 name: release
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+    paths: ["extension/manifest.json", ".github/release-notes/**", ".github/workflows/release.yml"]
+  workflow_dispatch:
 permissions:
   contents: write
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
-      - name: Check the tag matches the manifest
+      - name: Read the version, skip if already released
         run: |
           V=$(python3 -c "import json;print(json.load(open('extension/manifest.json'))['version'])")
-          [ "${GITHUB_REF_NAME}" = "v$V" ] || { echo "Tag ${GITHUB_REF_NAME} but manifest says $V"; exit 1; }
           echo "V=$V" >> "$GITHUB_ENV"
+          if gh release view "v$V" >/dev/null 2>&1; then echo "SKIP=1" >> "$GITHUB_ENV"; echo "v$V already released"; fi
       - name: Build
+        if: env.SKIP != '1'
         run: sh package.sh
       - name: Publish
-        env:
-          GH_TOKEN: ${{ github.token }}
+        if: env.SKIP != '1'
         run: |
           NOTES=".github/release-notes/v$V.md"
           if [ -f "$NOTES" ]; then ARGS="--notes-file $NOTES"; else ARGS="--generate-notes"; fi
-          gh release create "$GITHUB_REF_NAME" "dist/artspo-$V.zip" "dist/artspo-extension-$V.zip" \
-            --title "Artspo $V: clip the web's best design for your AI agent" $ARGS
+          gh release create "v$V" "dist/artspo-$V.zip" "dist/artspo-extension-$V.zip" \
+            --target "$GITHUB_SHA" --title "Artspo $V: clip the web's best design for your AI agent" $ARGS
