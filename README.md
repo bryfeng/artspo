@@ -129,6 +129,20 @@ Then ask your agent:
 
 > Import https://sam.github.io/artbook/ into my library, then make a pricing page from its patterns and my clips.
 
+## Let your agent clip
+
+Artspo comes with a small MCP server, so your agent can add pages to your library itself:
+
+> Find five fintech landing pages with great motion and clip them into fintech-serious.
+
+It runs on your computer (Python 3, nothing to install beyond it), with no hosted server and no account. The extension connects to it
+on its own. Pages open in your own Chrome, so by default the agent only *asks*: you approve each request in the
+popup (the badge shows **?**). Setup can switch that to "Clip without asking", or off.
+
+- **Claude Code:** the plugin includes it (`/plugin install artspo --marketplace bryfeng/artspo`).
+- **Any other agent:** `sh install.sh` puts it at `~/.artspo/mcp/artspo_mcp.py`; add that to your agent's MCP
+  servers. [docs/MCP.md](docs/MCP.md) has the config for each agent.
+
 ## For agents
 
 If you're an agent working with an Artspo library, read the skill first:
@@ -153,12 +167,15 @@ If you're an agent working with an Artspo library, read the skill first:
   `--public --site <dir> --url <address>` for a book, and confirm with the user before publishing anything.
 - **Someone else's book:** read its `artbook.md`, or import it with `import_book.py <link>`. Imported patterns
   are `<id>@<book>` and stay read-only.
+- **Clipping for the user:** with the Artspo MCP tools (`artspo_clip`, `artspo_status`, `artspo_process_now`,
+  `artspo_list_clips`, `artspo_read`), clip only pages the user asked for, and expect them to approve first.
 
 ## More
 
 - [docs/TUTORIAL.md](docs/TUTORIAL.md): five-minute walkthrough
 - [docs/INSPECTION.md](docs/INSPECTION.md): what the inspection measures, how, and its limits
 - [docs/SHARING.md](docs/SHARING.md): publish a book, use your own domain, import someone else's
+- [docs/MCP.md](docs/MCP.md): let your agent clip pages, set up for each agent, and how the connection works
 - [docs/PRIVACY.md](docs/PRIVACY.md): what Artspo touches and where data goes (nowhere)
 - [docs/BACKLOG.md](docs/BACKLOG.md): what's planned
 - [docs/STORE.md](docs/STORE.md): the Chrome Web Store listing, permission justifications and release steps

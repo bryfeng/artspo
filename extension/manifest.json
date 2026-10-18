@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Artspo",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Save websites as design inspiration. Measures colors, fonts, design tokens and motion into files your AI coding agent builds from.",
   "minimum_chrome_version": "118",
   "action": {

@@ -18,7 +18,7 @@ Artspo is a Chrome extension that clips websites as design inspiration. The libr
 Your job is to keep that chain intact: every work traces to patterns, every pattern traces to clips.
 `catalogue.html` shows all of it on one page, with that lineage clickable.
 
-Skill version 0.7.1. The library's `AGENTS.md` ends with the version of the extension that wrote it. If that's newer
+Skill version 0.8.0. The library's `AGENTS.md` ends with the version of the extension that wrote it. If that's newer
 than this skill, tell the user once that their skill is out of date and how to update it:
 `curl -fsSL https://raw.githubusercontent.com/bryfeng/artspo/main/install.sh | sh`, then restart the agent.
 
@@ -271,6 +271,24 @@ Patterns land in `patterns/imported/<book>/`, each crediting its source. Then:
   it under `## Pairs with`, and back it with the user's clips if you can.
 - Imported patterns have no clips in this library. Treat them as recipes, and say when a choice rests on one.
 - Without importing, any agent can use a book directly: read its `artbook.md` (or take one Copy prompt).
+
+## Clip pages for the user (Artspo MCP tools)
+
+If you have the `artspo_*` tools (the Artspo MCP server, bundled with the Claude Code plugin; elsewhere the user
+adds `python3 ~/.artspo/mcp/artspo_mcp.py`), you can add pages to the library instead of asking the user to visit each one.
+
+- `artspo_clip` takes up to 25 links, each with an optional note, and a collection. The extension inspects them
+  later in the user's own Chrome. Write a note only from what the user said or plainly wants; it becomes the
+  clip's Note, which outranks every measurement.
+- By default the user approves each request in the Artspo popup (the toolbar badge shows `?`). When the result
+  says `awaiting-approval`, tell them, then check `artspo_status` with the same urls. States: `awaiting-approval`,
+  `declined`, `queued`, `running`, `done`, `partial`, `failed`, `in-library`, `unknown`.
+- Inspection runs when the user is idle. `artspo_process_now` starts it immediately, but it opens tabs in their
+  Chrome and shows Chrome's debugging bar, so say so first. Expect about a minute per page.
+- Clip only pages the user asked for or agreed to. Never clip logged-in, account or private pages unless they
+  explicitly ask; the inspection runs in their real Chrome profile.
+- `artspo_list_clips` and `artspo_read` read the library from disk and work without the extension. If you can
+  read files directly, that works just as well.
 
 ## Rules
 
