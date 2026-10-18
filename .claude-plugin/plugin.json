@@ -9,6 +9,18 @@
   "homepage": "https://artbook.dev",
   "repository": "https://github.com/bryfeng/artspo",
   "license": "MIT",
-  "keywords": ["design", "design-system", "design-tokens", "motion", "inspiration", "chrome-extension"],
-  "skills": ["./extension/skills/artspo"]
+  "keywords": [
+    "design",
+    "design-system",
+    "design-tokens",
+    "motion",
+    "inspiration",
+    "chrome-extension"
+  ],
+  "skills": [
+    "./extension/skills/artspo"
+  ],
+  "documentationUrl": "https://github.com/bryfeng/artspo/blob/main/docs/TUTORIAL.md",
+  "supportUrl": "https://github.com/bryfeng/artspo/issues",
+  "privacyPolicyUrl": "https://github.com/bryfeng/artspo/blob/main/docs/PRIVACY.md"
 }
