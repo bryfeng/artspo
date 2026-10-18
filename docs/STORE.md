@@ -92,8 +92,8 @@ closing, then open the clip's folder and its `clip.md`.
 
 ## Each update
 
-1. Bump `version` in `extension/manifest.json` and the "Skill version" line in `extension/skills/artspo/SKILL.md`
-   (`package.sh` refuses to build if they differ).
+1. Bump `version` in `extension/manifest.json`, `.claude-plugin/plugin.json` and the "Skill version" line in
+   `extension/skills/artspo/SKILL.md` (`package.sh` refuses to build if they differ).
 2. Push to main. The release workflow publishes GitHub Release v<version> with both zips (and
    `.github/release-notes/v<version>.md` as its notes, if you wrote one).
 3. Upload `artspo-extension-<version>.zip` from that release (or `sh package.sh`) to the store, submit.

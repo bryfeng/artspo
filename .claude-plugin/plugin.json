@@ -1,0 +1,14 @@
+{
+  "name": "artspo",
+  "version": "0.7.1",
+  "description": "Turn websites you clipped with the Artspo Chrome extension (measured palette, type, shape and motion) into design languages, techniques, tokens, motion specs and pages, and publish or import shareable books.",
+  "author": {
+    "name": "bryfeng",
+    "url": "https://github.com/bryfeng"
+  },
+  "homepage": "https://artbook.dev",
+  "repository": "https://github.com/bryfeng/artspo",
+  "license": "MIT",
+  "keywords": ["design", "design-system", "design-tokens", "motion", "inspiration", "chrome-extension"],
+  "skills": ["./extension/skills/artspo"]
+}
