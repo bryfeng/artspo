@@ -165,7 +165,7 @@ function clipCard(k) {
 // ================================================================ grid
 const works = D.works, langs = D.patterns.filter((p) => p.type === 'language'), techs = D.patterns.filter((p) => p.type === 'technique');
 const starFirst = (a, b) => (b.starred - a.starred);
-$('#n-work').textContent = works.length; $('#n-pattern').textContent = D.patterns.length; $('#n-clip').textContent = D.clips.length;
+$('#n-work').textContent = works.length; if (D.public && !works.length) $('#tab-work').hidden = true; $('#n-pattern').textContent = D.patterns.length; $('#n-clip').textContent = D.clips.length;
 const gw = $('#g-works');
 works.slice().sort(starFirst).forEach((w) => gw.append(workCard(w)));
 if (!D.public) {
@@ -186,7 +186,7 @@ D.clips.slice().sort((a, b) => b.clipped.localeCompare(a.clipped)).forEach((k) =
 const foot = $('#foot');
 foot.append(el('span', 'mono', D.public ? `Built ${D.built}` : `Built ${D.built} from ${D.library}`));
 if (D.public) foot.append(el('span', '', D.clips.some((k) => k.img) ? 'Screenshots and measurements belong to the sites they came from and are shown for reference, with links. Patterns, specimens and works are our own.' : 'Measurements come from the sites named, with links. Patterns, specimens and works are our own.'));
-if (D.book) { const a = el('a', 'mono', 'artbook.md'); a.href = 'artbook.md'; foot.append(a); }
+if (D.book) for (const [label, href] of [['artbook.md', 'artbook.md'], ['llms.txt', 'llms.txt'], ['agents/menu.json', 'agents/menu.json']]) { const a = el('a', 'mono', label); a.href = href; foot.append(a); }
 if (D.superseded) foot.append(el('span', 'mono', `${D.superseded} superseded clip${D.superseded === 1 ? '' : 's'} hidden`));
 foot.append(el('span', 'mono', D.public ? 'Made with Artspo' : 'Rebuild: python3 catalogue.py'));
 if (D.title) { const b = document.querySelector('.brand'); b.textContent = ''; b.append(el('b', '', D.title), el('span', '', D.book ? 'an Artspo book' : 'an Artspo catalogue')); document.title = D.title; }
@@ -204,12 +204,13 @@ function collectionSet(c) {
 function useBook(box) {
   const u = el('div', 'use');
   const t = el('div', 'use-t');
-  t.append(el('b', '', 'Take anything here to your own AI.'), el('span', '', ' Open a pattern or work and press Copy prompt, or give your agent the whole book:'));
-  const line = `Use ${D.url || location.href.replace(/[#?].*$/, '').replace(/index\.html$/, '')}artbook.md as your design reference.`;
+  t.append(el('b', '', 'Take anything here to your own AI.'), el('span', '', ' Open a pattern or work and press Copy prompt, or point your agent at the book. It can shop the menu item by item, or read it whole:'));
+  const line = `Shop ${D.url || location.href.replace(/[#?].*$/, '').replace(/index\.html$/, '')}llms.txt for design references that fit what we're building.`;
   const row = el('div', 'path'); const code = el('code', '', line);
   const cp = el('button', 'btn', 'Copy'); cp.type = 'button'; cp.addEventListener('click', () => copy(line, cp));
-  const a = el('a', 'btn', 'artbook.md'); a.href = 'artbook.md'; a.target = '_blank';
-  row.append(code, cp, a); u.append(t, row); box.append(u);
+  const a = el('a', 'btn', 'llms.txt'); a.href = 'llms.txt'; a.target = '_blank';
+  const m = el('a', 'btn', 'menu.json'); m.href = 'agents/menu.json'; m.target = '_blank';
+  row.append(code, cp, a, m); u.append(t, row); box.append(u);
 }
 function renderBrief() {
   const box = $('#brief'); box.textContent = '';

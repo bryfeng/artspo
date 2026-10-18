@@ -45,8 +45,18 @@ Pages. Otherwise:
 
 To update it, run the same build command, then `git add -A && git commit -m "Update" && git push`.
 
-The folder holds `index.html` (the page), `artbook.md` (for agents), `cover.png` (the preview image when the link is
-posted), `img/` and `works/`, and an empty `.nojekyll` so GitHub serves the files as they are.
+The folder holds `index.html` (the page), `artbook.md` (the whole book, for agents), `cover.png` (the preview image
+when the link is posted), `img/` and `works/`, and an empty `.nojekyll` so GitHub serves the files as they are.
+
+It also holds an **agent catalogue**, so an agent can shop the book instead of reading all of it:
+
+- `llms.txt`: what the book is and where to start, in the [llms.txt](https://llmstxt.org) format agents look for.
+- `agents/menu.json`: every design language, technique (by facet: color, type, shape, layout, motion) and measured
+  clip, with one line each and a link.
+- `agents/patterns/<id>.json` and `agents/clips/<key>.json`: one item in full, with a `prompt` that works on its own.
+
+Tell an agent `Shop https://you.github.io/artbook/llms.txt for design references that fit what we're building.`
+Add `--no-works` to publish patterns and clips only.
 
 ## Your own domain, later
 

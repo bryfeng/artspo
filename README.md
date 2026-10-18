@@ -64,7 +64,8 @@ the brief before it makes anything for that collection, and works made for it ar
 
 Publish your library, or one collection, as a **book**: a page anyone can browse, where every pattern and work has a
 **Copy prompt** that works in any AI. The same book is one `artbook.md` file, so someone can tell their agent "use
-this book as your design reference" with just the link. Other Artspo users can import it and build with your
+this book as your design reference" with just the link, and an agent catalogue (`llms.txt` and `agents/menu.json`)
+that lets an agent shop it item by item: pick a language, a technique or a measured site, and fetch just that. Other Artspo users can import it and build with your
 patterns, credited to you.
 
 Books go on GitHub Pages (or any static host) with a preview card for when the link is posted. They leave out

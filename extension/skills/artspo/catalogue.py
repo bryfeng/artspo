@@ -11,6 +11,7 @@ Usage:  python3 catalogue.py [LIBRARY] [options]
   --public       the public edition: leaves out private and logged-in clips, your notes, site text,
                  full-page shots, filmstrips, raw clip.md and file paths. Prints what it left out.
   --with-notes   with --public: keep your notes
+  --no-works     leave works out (a book of patterns and clips only, e.g. when works were made for clients)
   --thumbnails   with --public: show each clip's screenshot (by default clips appear only as rebuilt element sheets)
   --url URL      with --site: the address the book will live at (https://you.github.io/artbook/). Gives shared
                  links a preview image; a domain that isn't github.io also gets a CNAME file for GitHub Pages
@@ -27,7 +28,8 @@ Examples
   python3 catalogue.py --public --site ~/code/artbook --url https://you.github.io/artbook/   a book for GitHub Pages
 
 Every --site folder is a book: index.html for people, artbook.md for agents (every pattern and work as a
-standalone prompt), cover.png for link previews. Anyone can import a book into their own library with
+standalone prompt), cover.png for link previews, and an agent catalogue: llms.txt and agents/menu.json, which
+list every pattern and measured clip so an agent can pick and fetch just the ones it needs (see agents.py). Anyone can import a book into their own library with
 import_book.py.
 
 Python 3.8+, standard library only. Reads files, never changes them except the output page.
@@ -43,6 +45,7 @@ import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+from agents import write_agents  # noqa: E402
 from book import artbook, cover_png, pattern_prompt, portable, work_prompt  # noqa: E402
 RESERVED = {"patterns", "reports", "works", "_generated", "skills", "icons", "inject", "lib", "popup", "offscreen", "node_modules"}
 
@@ -464,7 +467,9 @@ def embed_image(lib, rel, width=720, max_h=None):
 # ---------------------------------------------------------------- public edition
 LOGGED_IN = re.compile(r"^(app|dashboard|console|admin|portal|account|my|studio)\.|/(workspaces?|dashboard|settings|account|admin|inbox|org|projects?/\w)", re.I)
 GENERIC = "Sphinx of black quartz, judge my vow"
-QUOTED = re.compile(r'\s*"[^"]*"')
+SITE_TEXT = re.compile(r'(?<=[\w\])])\s+"[^"]*("|$)')  # `h1.title "Create anything"` → `h1.title`; leaves `Display: "Inter"`
+EXAMPLE = re.compile(r'\s*— (e\.g\. )?"[^"]*("|$)')  # `— e.g. "New"`, `120px 400 Inter — "Revenue"`
+QUOTED = re.compile(r'\s*"[^"]*("|$)')
 
 
 def public_edition(clips, patterns, works, with_notes=False, thumbnails=False):
@@ -494,6 +499,9 @@ def public_edition(clips, patterns, works, with_notes=False, thumbnails=False):
         keep.append(c)
     for it in patterns + works:
         it["path"] = ""
+    for p in patterns:  # evidence lines can quote a site's own words next to a selector; keep the measurement only
+        for e in p["proof"]:
+            e["quote"] = SITE_TEXT.sub("", EXAMPLE.sub("", e["quote"]))
     for w in works:
         w["texts"] = {n: t for n, t in w["texts"].items() if not n.endswith(".md")}  # rationale and notes stay home
     return keep, removed
@@ -538,7 +546,9 @@ def head_tags(title, description, url, cover):
             f'<meta property="og:type" content="website">',
             f'<meta property="og:title" content="{esc(title)}">',
             f'<meta property="og:description" content="{esc(description)}">',
-            f'<link rel="alternate" type="text/markdown" href="artbook.md" title="This book as Markdown, for agents">']
+            f'<link rel="alternate" type="text/markdown" href="artbook.md" title="This book as Markdown, for agents">',
+            f'<link rel="alternate" type="application/json" href="agents/menu.json" title="Agent catalogue: every pattern and clip, one link each">',
+            f'<link rel="help" type="text/plain" href="llms.txt" title="For agents: start here">']
     if url:
         tags.append(f'<meta property="og:url" content="{esc(url)}">')
     if img:
@@ -558,7 +568,7 @@ def main(argv):
             continue
         (flags.add if a.startswith("--") else args.append)(a)
         i += 1
-    unknown = flags - {"--embed", "--public", "--with-notes", "--thumbnails"}
+    unknown = flags - {"--embed", "--public", "--with-notes", "--thumbnails", "--no-works"}
     if unknown:
         sys.exit(f"Unknown option {', '.join(sorted(unknown))}. See: python3 catalogue.py --help" if "--help" not in flags else __doc__)
     lib = pathlib.Path(args[0] if args else "~/Downloads/artspo").expanduser().resolve()
@@ -578,7 +588,7 @@ def main(argv):
 
     clips, superseded = read_clips(lib)
     patterns = read_patterns(lib)
-    works = read_works(lib)
+    works = [] if "--no-works" in flags else read_works(lib)
     collections = read_collections(lib, clips)
     if opts["--collection"]:
         clips, patterns, works, collections = scope_to(opts["--collection"], clips, patterns, works, collections)
@@ -604,6 +614,7 @@ def main(argv):
         write_site(lib, site, clips, works)
         out = site / "index.html"
         (site / "artbook.md").write_text(artbook(book, patterns, works), encoding="utf-8")
+        shop_items = write_agents(site, book, patterns, clips, collections)
         if opts["--cover"]:
             src = pathlib.Path(opts["--cover"]).expanduser()
             cover = "cover" + (src.suffix.lower() or ".png")
@@ -613,7 +624,8 @@ def main(argv):
             (site / cover).write_bytes(cover_png([p["swatches"] for p in langs]))
         (site / ".nojekyll").write_text("", encoding="utf-8")  # GitHub Pages: serve the folder as it is
         host = re.sub(r"^https?://([^/:]+).*$", r"\1", url) if url else ""
-        if host and not host.endswith(".github.io"):
+        at_root = re.sub(r"^https?://[^/]+", "", url or "") in ("", "/")
+        if host and not host.endswith(".github.io") and at_root:  # a book in a subfolder rides on the parent site's domain
             (site / "CNAME").write_text(host + "\n", encoding="utf-8")  # GitHub Pages: your own domain
         head = head_tags(book["title"] or "An Artspo book", description, url, cover)
     else:
@@ -651,7 +663,8 @@ def main(argv):
               + ", page text, full-page shots, filmstrips, raw clip.md, work .md files, file paths"
               + ("" if "--thumbnails" in flags else ", clip screenshots (add --thumbnails to show them)"))
     if site:
-        print(f"  book: artbook.md (for agents), {cover} (social card)" + (", CNAME" if (site / "CNAME").exists() and url else ""))
+        print(f"  book: artbook.md (for agents), llms.txt + agents/ ({shop_items} items agents can fetch one by one), {cover} (social card)"
+              + (", CNAME" if (site / "CNAME").exists() and url else ""))
         if not url:
             print("  tip: add --url https://you.github.io/<repo>/ so shared links get a preview image")
 

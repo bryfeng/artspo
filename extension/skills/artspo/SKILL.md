@@ -223,7 +223,9 @@ only a view.
 
 A published catalogue is a **book**: a page people browse, where every pattern and work has a **Copy prompt** that
 stands alone (the whole pattern, its tokens or recipe, a reference specimen, and the rules), plus `artbook.md`, the
-same book as one Markdown file for agents. Always build the public edition.
+same book as one Markdown file for agents, plus an **agent catalogue** agents can shop item by item: `llms.txt` and
+`agents/menu.json` list every language, technique and measured clip with a link to its own JSON, and each item's
+`prompt` stands alone. Always build the public edition.
 
 1. **Build it.** For a link people will share, build a site folder with the address it will live at:
    `python3 catalogue.py ~/Downloads/artspo --public --site ~/code/artbook --title "<Name>'s artbook" --url https://<user>.github.io/artbook/`
@@ -232,13 +234,15 @@ same book as one Markdown file for agents. Always build the public edition.
    - `--collection <name>` makes a book of one collection: its brief, clips, the works made for it, their patterns.
    - Clips appear as rebuilt element sheets with no screenshots. Add `--thumbnails` only if the user wants each
      site's screenshot shown; it's their call, since those images belong to the sites.
-   - One self-contained file instead of a folder: `--public --embed --out FILE` (no artbook.md or cover).
+   - `--no-works` leaves works out, for a book of patterns and clips only (ask if works were made for clients).
+   - A book in a subfolder of a site (`--url https://artbook.dev/library/`) gets no `CNAME`; the parent site has it.
+   - One self-contained file instead of a folder: `--public --embed --out FILE` (no artbook.md, cover or agent catalogue).
 2. **Show the user what was left out.** The script prints it: clips marked `private: true`, clips that look like
    logged-in pages (app., dashboard, workspace URLs), plus notes, page text, full-page shots, filmstrips, raw
    clip.md and file paths, which the public edition always drops. Ask before publishing if anything listed
    looks wrong. A logged-in clip goes public only if the user sets `public: true` in its clip.md themselves.
    Notes go public only with `--with-notes`, and only if the user asks for it.
-3. **Check what's left.** Search `index.html` and `artbook.md` for the user's name, email, workspace or account IDs.
+3. **Check what's left.** Search `index.html`, `artbook.md`, `llms.txt` and `agents/` for the user's name, email, workspace or account IDs.
    Patterns and works are written by agents and can quote clips; fix the source file if anything personal slipped in.
 4. **Publish where the user says**, never without their go-ahead. For GitHub Pages with the `gh` CLI signed in
    (`gh auth status`), do it all yourself from the site folder:
