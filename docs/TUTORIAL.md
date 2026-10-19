@@ -45,6 +45,10 @@ open and close, and Chrome's "started debugging this browser" bar. To run it now
 line (anything after a link becomes its note). Give the collection a brief while you're there: it's what your agent
 reads first when you ask for work for that collection.
 
+**Or let your agent find and clip them.** With the Artspo MCP server added to your agent ([MCP.md](MCP.md)), ask
+"find five editorial sites with great type and clip them into editorial-warm". Approve the request in the popup when
+the badge shows **?**.
+
 ## 3. Ask for something
 
 From any folder (the skill finds your library), or from inside `~/Downloads/artspo`:

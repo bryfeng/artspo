@@ -34,3 +34,13 @@ done
 version="$(sed -n 's/^.*Skill version \([0-9][0-9.]*[0-9]\).*$/\1/p' "$SRC/SKILL.md" | head -1)"
 command -v python3 >/dev/null 2>&1 || echo "note: python3 not found. Agents need it to build the catalogue and books (run: xcode-select --install)."
 echo "done: artspo skill ${version:+$version }in $installed locations. Restart your agent so it picks up the skill."
+
+# the MCP server, at a path that doesn't move when the repo does (Claude Code's plugin bundles its own copy)
+MCP_SRC="$(cd "$SRC/../../.." && pwd)/mcp/artspo_mcp.py"
+if [ -f "$MCP_SRC" ]; then
+  mkdir -p "$HOME/.artspo/mcp"
+  cp "$MCP_SRC" "$HOME/.artspo/mcp/artspo_mcp.py"
+  echo "installed → $HOME/.artspo/mcp/artspo_mcp.py (the Artspo MCP server, so your agent can ask Artspo to clip pages)"
+  echo "  Claude Code: claude mcp add --scope user artspo -- python3 ~/.artspo/mcp/artspo_mcp.py   (or use the plugin)"
+  echo "  Other agents: docs/MCP.md, https://github.com/bryfeng/artspo/blob/main/docs/MCP.md"
+fi

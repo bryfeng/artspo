@@ -118,6 +118,46 @@ function renderJobs(queue, processing) {
   }
 }
 
+// an agent asked (through the Artspo MCP server) to clip pages; nothing is queued until you approve
+function renderRequests(requests) {
+  const box = $('requests');
+  box.textContent = '';
+  box.hidden = !requests?.length;
+  for (const r of requests || []) {
+    const card = document.createElement('div');
+    card.className = 'request';
+    const head = document.createElement('div');
+    head.className = 'request-head';
+    const who = r.client ? `Your agent (${r.client})` : 'Your agent';
+    const b = document.createElement('b'); b.textContent = r.collection;
+    head.append(`${who} wants to clip ${r.links.length} page${r.links.length === 1 ? '' : 's'} into `, b);
+    const ul = document.createElement('ul');
+    for (const l of r.links.slice(0, 8)) {
+      const li = document.createElement('li');
+      let host = l.url;
+      try { const u = new URL(l.url); host = u.hostname.replace(/^www\./, '') + (u.pathname.length > 1 ? u.pathname : ''); } catch {}
+      li.textContent = host;
+      li.title = l.url + (l.note ? `\n${l.note}` : '');
+      ul.append(li);
+    }
+    if (r.links.length > 8) { const li = document.createElement('li'); li.textContent = `and ${r.links.length - 8} more`; ul.append(li); }
+    const btns = document.createElement('div');
+    btns.className = 'row-btns';
+    const no = document.createElement('button'); no.className = 'ghost'; no.textContent = 'Decline';
+    const yes = document.createElement('button'); yes.className = 'ghost approve'; yes.textContent = 'Approve';
+    no.onclick = () => { no.disabled = yes.disabled = true; call('declineRequest', { id: r.id }).then(refresh); };
+    yes.onclick = async () => {
+      no.disabled = yes.disabled = true;
+      const res = await call('approveRequest', { id: r.id });
+      if (res?.error) { yes.disabled = no.disabled = false; head.textContent = res.error; return; }
+      refresh();
+    };
+    btns.append(no, yes);
+    card.append(head, ul, btns);
+    box.append(card);
+  }
+}
+
 function renderCollections(collections, selected) {
   const sel = $('collection');
   sel.textContent = '';
@@ -128,6 +168,7 @@ function renderCollections(collections, selected) {
 async function refresh() {
   const s = await call('state');
   if (!s || s.error) return;
+  renderRequests(s.requests);
   renderJobs(s.queue, s.processing);
   if (!$('collection').options.length) renderCollections(s.collections, s.lastCollection);
   $('idle').value = String(s.settings.idleSeconds);

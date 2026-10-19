@@ -184,6 +184,19 @@ $('idle').addEventListener('change', async () => {
   $('idleSaved').hidden = false; setTimeout(() => ($('idleSaved').hidden = true), 1500);
 });
 
+$('agents').addEventListener('change', async () => {
+  await call('settings', { settings: { agents: $('agents').value } });
+  $('agentsSaved').hidden = false; setTimeout(() => ($('agentsSaved').hidden = true), 1500);
+  setTimeout(known, 1500); // give the bridge a moment to connect
+});
+
+function bridgeLine() {
+  const mode = state.settings.agents || 'ask';
+  if (mode === 'off') return 'Off: agents can still read your library files, but can’t ask Artspo to clip.';
+  if (state.bridge?.connected) return 'Connected: an agent’s Artspo server is running on this computer.';
+  return 'No agent connected right now. Artspo looks for the Artspo MCP server about once a minute while Chrome is open.';
+}
+
 document.querySelectorAll('.copy').forEach((b) => b.addEventListener('click', async () => {
   try { await navigator.clipboard.writeText($(b.dataset.copy).textContent); b.textContent = 'Copied'; setTimeout(() => (b.textContent = 'Copy'), 1400); } catch {}
 }));
@@ -194,6 +207,8 @@ async function known() {
   if (document.activeElement !== $('library')) $('library').value = lib;
   linkCommands(lib);
   $('idle').value = String(state.settings.idleSeconds);
+  $('agents').value = state.settings.agents || 'ask';
+  $('bridgeStatus').textContent = bridgeLine();
   renderCollections();
   const n = state.queue.length;
   $('known').textContent = n ? `Artspo knows ${n} clip${n === 1 ? '' : 's'} in Downloads/${lib}.` : `No clips yet. They'll go to Downloads/${lib}.`;

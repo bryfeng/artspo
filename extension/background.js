@@ -2,11 +2,13 @@ import { inspect } from './lib/inspector.js';
 import { writeFiles } from './lib/writer.js';
 import { buildStub, buildClipMd, replaceNote, cleanNote, buildCollectionMd } from './lib/clipmd.js';
 import { normUrl, cleanUrl } from './lib/url.js';
+import { startBridge, stopBridge, onBridgeAlarm, bridgeState } from './lib/bridge.js';
 
 const DEFAULT_LIBRARY = 'artspo';
 const MAX_ATTEMPTS = 3;
 const KEEP_DONE = 100;
-const DEFAULTS = { collections: ['inbox'], lastCollection: 'inbox', queue: [], settings: { idleSeconds: 120, library: DEFAULT_LIBRARY }, guideVersion: null, index: {}, collectionMeta: {} };
+// settings.agents: 'off' | 'ask' (an agent's clip requests wait for your OK in the popup) | 'auto'
+const DEFAULTS = { collections: ['inbox'], lastCollection: 'inbox', queue: [], settings: { idleSeconds: 120, library: DEFAULT_LIBRARY, agents: 'ask' }, guideVersion: null, index: {}, collectionMeta: {}, requests: [], declined: [] };
 
 // ---------------- storage ----------------
 const get = async (k) => (await chrome.storage.local.get(k))[k] ?? structuredClone(DEFAULTS[k]);
@@ -24,7 +26,13 @@ function broadcast() {
   refreshBadge();
 }
 async function refreshBadge() {
-  const queue = await get('queue');
+  const [queue, requests] = await Promise.all([get('queue'), get('requests')]);
+  if (requests.length) {
+    // an agent is waiting for your OK: that outranks the queue count
+    chrome.action.setBadgeText({ text: '?' });
+    chrome.action.setBadgeBackgroundColor({ color: '#3a5bd9' });
+    return;
+  }
   const pending = queue.filter((j) => j.status === 'queued' || j.status === 'running').length;
   chrome.action.setBadgeText({ text: pending ? String(pending) : '' });
   chrome.action.setBadgeBackgroundColor({ color: '#1a1a1a' });
@@ -53,6 +61,7 @@ async function init() {
   if (dirty) await set({ queue });
   await dedupe();
   refreshBadge();
+  if ((settings.agents || 'ask') !== 'off') startBridge(bridgeHandlers);
 }
 
 // ---------------- one clip per page ----------------
@@ -106,6 +115,7 @@ chrome.idle.onStateChanged.addListener((state) => {
   if (state === 'idle' || state === 'locked') processQueue('idle');
 });
 chrome.alarms.onAlarm.addListener(async (a) => {
+  onBridgeAlarm(a);
   if (a.name !== 'artspo-tick') return;
   const { idleSeconds } = await get('settings');
   const state = await chrome.idle.queryState(Math.max(15, idleSeconds));
@@ -161,7 +171,7 @@ async function addLinks({ collection, text }) {
   const all = await get('collectionMeta');
   const meta = all[coll] || { title: coll, brief: '', links: [] };
   meta.links = meta.links || [];
-  const added = [], skipped = [], files = [], seenKeys = new Set();
+  const added = [], skipped = [], files = [], jobs = [], seenKeys = new Set();
   for (const raw of String(text || '').split(/\n+/)) {
     const m = raw.trim().match(/^(?:[-*•]\s*)?(\S+)\s*(?:[—–:-]+\s*)?(.*)$/);
     if (!m || !m[1]) continue;
@@ -184,6 +194,7 @@ async function addLinks({ collection, text }) {
     };
     job.md = buildStub(job);
     files.push({ path: `${job.dir}/clip.md`, text: job.md });
+    jobs.push(job);
     queue.unshift(job);
     index[key] = indexEntry(job);
     meta.links.push({ url, why: note, added: clippedAt.slice(0, 10) });
@@ -195,7 +206,9 @@ async function addLinks({ collection, text }) {
     const collections = await get('collections');
     if (!collections.includes(coll)) collections.push(coll);
     files.push({ path: `${root}/${coll}/collection.md`, text: buildCollectionMd(coll, meta) });
-    await writeFiles(files);
+    const written = await writeFiles(files);
+    // remember where each clip landed on disk (the first files written are the clip.md stubs, in order)
+    jobs.forEach((j, i) => { if (written[i]) { j.localPath = written[i].replace(/[\\/]clip\.md$/, ''); index[normUrl(j.url)] = indexEntry(j); } });
     await set({ queue, index, collectionMeta: all, collections });
     broadcast();
   }
@@ -384,14 +397,121 @@ async function importLibrary(entries) {
   return { ok: true, added, merged };
 }
 
+// ---------------- agent bridge ----------------
+// A coding agent reaches Artspo through the local MCP server (mcp/artspo_mcp.py) over lib/bridge.js.
+// Clipping loads pages in your own Chrome profile, logged-in sessions included, so by default an agent only
+// *asks*: the request waits in the popup until you approve it. Setup can switch that to "clip without asking".
+const MAX_AGENT_LINKS = 25;
+
+// absolute path of the library on disk, learned from any clip's saved location
+async function libraryPath() {
+  const lp = (await get('queue')).map((j) => j.localPath).find(Boolean)
+    || Object.values(await get('index')).map((e) => e.localPath).find(Boolean);
+  if (!lp) return null;
+  return lp.split(/[\\/]/).slice(0, -2).join(lp.includes('\\') ? '\\' : '/');
+}
+
+const linesFor = (links) => links.map((l) => `${l.url}${l.note ? ` — ${l.note}` : ''}`).join('\n');
+
+async function agentClip({ links, collection, client }) {
+  const settings = await get('settings');
+  if ((settings.agents || 'ask') === 'off') throw new Error('Agent requests are turned off in Artspo setup.');
+  const coll = collectionSlug(collection || 'inbox');
+  const queue = await get('queue');
+  const index = await get('index');
+  const fresh = [], already = [];
+  for (const l of (links || []).slice(0, MAX_AGENT_LINKS)) {
+    let url;
+    try { url = cleanUrl(new URL(String(l.url)).toString()); } catch { continue; }
+    if (!/^https?:/.test(url)) continue;
+    const key = normUrl(url);
+    const known = queue.find((j) => normUrl(j.url) === key) || index[key];
+    if (known) already.push({ url, collection: known.collection, dir: known.dir });
+    else if (!fresh.some((f) => normUrl(f.url) === key)) fresh.push({ url, note: cleanNote(l.note).replace(/\n/g, ' ') });
+  }
+  if (!fresh.length) return { state: 'nothing-new', collection: coll, already };
+  if (settings.agents === 'auto') {
+    const res = await addLinks({ collection: coll, text: linesFor(fresh) });
+    return { state: 'queued', collection: res.collection, added: res.added, skipped: res.skipped, already };
+  }
+  const requests = await get('requests');
+  const req = { id: crypto.randomUUID(), at: localIso(), collection: coll, links: fresh, client: String(client || '').slice(0, 60) };
+  requests.push(req);
+  await set({ requests });
+  broadcast();
+  return { state: 'awaiting-approval', requestId: req.id, collection: coll, links: fresh.map((f) => f.url), already };
+}
+
+async function approveRequest(id) {
+  const requests = await get('requests');
+  const req = requests.find((r) => r.id === id);
+  if (!req) throw new Error('That request is gone.');
+  const res = await addLinks({ collection: req.collection, text: linesFor(req.links) });
+  await set({ requests: (await get('requests')).filter((r) => r.id !== id) });
+  broadcast();
+  return res;
+}
+
+async function declineRequest(id) {
+  const requests = await get('requests');
+  const req = requests.find((r) => r.id === id);
+  if (!req) return { ok: true };
+  const declined = [...req.links.map((l) => ({ url: l.url, at: localIso() })), ...(await get('declined'))].slice(0, 50);
+  await set({ requests: requests.filter((r) => r.id !== id), declined });
+  broadcast();
+  return { ok: true };
+}
+
+async function agentStatus({ urls }) {
+  const [queue, index, requests, declined, settings] = await Promise.all([get('queue'), get('index'), get('requests'), get('declined'), get('settings')]);
+  const count = (s) => queue.filter((j) => j.status === s).length;
+  const items = (urls || []).slice(0, 100).map((u) => {
+    const key = normUrl(u);
+    const asked = requests.find((r) => r.links.some((l) => normUrl(l.url) === key));
+    if (asked) return { url: u, state: 'awaiting-approval', collection: asked.collection };
+    const j = queue.find((x) => normUrl(x.url) === key);
+    if (j) return { url: u, state: j.status, collection: j.collection, dir: j.dir, path: j.localPath || null, ...(j.progress ? { progress: j.progress } : {}), ...(j.error ? { error: j.error } : {}) };
+    const e = index[key];
+    if (e) return { url: u, state: 'in-library', collection: e.collection, dir: e.dir, path: e.localPath || null };
+    if (declined.some((d) => normUrl(d.url) === key)) return { url: u, state: 'declined' };
+    return { url: u, state: 'unknown' };
+  });
+  return {
+    approval: settings.agents || 'ask',
+    library: await libraryPath(),
+    processing,
+    queued: count('queued'), running: count('running'),
+    awaitingApproval: requests.map((r) => ({ requestId: r.id, collection: r.collection, links: r.links.length, at: r.at })),
+    ...(items.length ? { items } : {}),
+  };
+}
+
+const bridgeHandlers = {
+  enabled: async () => ((await get('settings')).agents || 'ask') !== 'off',
+  hello: async () => ({ version: chrome.runtime.getManifest().version, library: await libraryPath(), libraryName: await libraryRoot(), approval: (await get('settings')).agents || 'ask' }),
+  changed: () => broadcast(),
+  op: async (op, args) => {
+    switch (op) {
+      case 'clip': return agentClip(args);
+      case 'status': return agentStatus(args);
+      case 'processNow': {
+        const pending = (await get('queue')).filter((j) => j.status === 'queued').length;
+        if (pending) processQueue('agent').catch(() => {});
+        return { started: !!pending, queued: pending, note: pending ? 'Inspecting now, oldest first. Each page takes about a minute.' : 'Nothing is queued.' };
+      }
+      default: throw new Error(`Unknown request: ${op}`);
+    }
+  },
+};
+
 // ---------------- popup API ----------------
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (msg?.target !== 'background') return;
   (async () => {
     switch (msg.type) {
       case 'state': {
-        const [queue, collections, lastCollection, settings, collectionMeta] = await Promise.all([get('queue'), get('collections'), get('lastCollection'), get('settings'), get('collectionMeta')]);
-        return { queue, collections, lastCollection, settings, collectionMeta, processing };
+        const [queue, collections, lastCollection, settings, collectionMeta, requests] = await Promise.all([get('queue'), get('collections'), get('lastCollection'), get('settings'), get('collectionMeta'), get('requests')]);
+        return { queue, collections, lastCollection, settings, collectionMeta, processing, requests, bridge: bridgeState() };
       }
       case 'clip': return { job: await clip(msg.data) };
       case 'lookup': {
@@ -439,6 +559,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
         const settings = { ...(await get('settings')), ...msg.settings };
         await set({ settings });
         chrome.idle.setDetectionInterval(Math.max(15, settings.idleSeconds));
+        if ('agents' in msg.settings) {
+          if (settings.agents === 'off') stopBridge(); else startBridge(bridgeHandlers);
+        }
         return { settings };
       }
       case 'showFolder': chrome.downloads.showDefaultFolder(); return { ok: true };
@@ -471,6 +594,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
       case 'importLibrary': return importLibrary(msg.entries || []);
       case 'saveCollection': return saveCollection(msg);
       case 'addLinks': return addLinks(msg);
+      case 'approveRequest': return approveRequest(msg.id);
+      case 'declineRequest': return declineRequest(msg.id);
       case 'openCatalogue': {
         // catalogue.html is built by your agent (skills/artspo/catalogue.py) at the library root
         const lp = ((await get('queue')) || []).map((j) => j.localPath).find(Boolean);
@@ -488,5 +613,5 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
 });
 
 // exposed for tests and the console
-globalThis.artspo = { clip, processQueue, get, set, dedupe };
+globalThis.artspo = { clip, processQueue, get, set, dedupe, agentClip, agentStatus, approveRequest, declineRequest };
 init();
