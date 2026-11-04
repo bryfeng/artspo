@@ -270,6 +270,17 @@
     const home = (el) => el.closest(`a[href="/"],a[href="./"],a[href="${location.origin}"],a[href="${location.origin}/"]`);
     // where the element sits on the page: fixed and sticky headers stay at the top however far the page scrolled
     const pinned = (el) => { for (let e = el, k = 0; e && k < 14; e = e.parentElement, k++) { const p = getComputedStyle(e).position; if (p === 'fixed' || p === 'sticky') return true; } return false; };
+    // page chrome: navigation, footers, sidebars, dialogs and cookie layers; a header counts when it's a bar
+    const CHROME = 'nav,footer,aside,dialog,[role="navigation"],[role="contentinfo"],[role="complementary"],[role="dialog"],[aria-modal="true"]';
+    const CONSENT = /(^|[\s_-])(cookie|consent|gdpr|onetrust|cookiebot)/i;
+    const chromeOf = (el) => {
+      if (el.closest(CHROME)) return true;
+      const bar = el.closest('header,[role="banner"]');
+      if (bar && (bar.getBoundingClientRect().height <= 200 || pinned(bar))) return true;
+      for (let e = el, k = 0; e && k < 12; e = e.parentElement, k++) if (CONSENT.test(`${e.id || ''} ${e.getAttribute('class') || ''}`)) return true;
+      return false;
+    };
+    const inControl = (el) => !!el.closest('a,button,[role="button"],summary,label,select');
     const yOf = (el, r) => (pinned(el) ? r.top : r.top + top0);
     // the site's own name, to tell its logo from the partner, customer and social logos around it
     const siteNames = (() => {
@@ -398,7 +409,7 @@
         viewBox: clone.getAttribute('viewBox') || undefined,
         role: roleOf(svg, r, '', { label: labelOf(svg), wide: r.width / r.height >= 2.2 && r.height <= 100 && r.width <= 520 && solid > 0 && !line && colors.size <= 2 })
           || (Math.max(r.width, r.height) > 120 ? 'illustration' : 'graphic'),
-        hidden: hidden || undefined,
+        hidden: hidden || undefined, chrome: chromeOf(svg) || undefined, control: inControl(svg) || undefined,
         style: line && !solid ? 'line' : solid && !line ? 'solid' : shapes ? 'mixed' : undefined,
         strokeWidth: mode(strokes), cap: mode(caps), join: mode(joins), colors: [...colors].slice(0, 4), shapes, n: 1,
         label: labelOf(svg),
@@ -418,8 +429,16 @@
         w: Math.round(r.width), h: Math.round(r.height), y: Math.round(r.top + top0),
         nw: el.naturalWidth || undefined, nh: el.naturalHeight || undefined, alt: alt || undefined,
         repeat: kind === 'background' && cs.backgroundRepeat !== 'no-repeat' && !/cover|contain/.test(cs.backgroundSize) ? cs.backgroundRepeat : undefined,
-        ...treatment(cs, el), n: 1,
+        ...treatment(cs, el), n: 1, chrome: chromeOf(el) || undefined,
       });
+    }
+    // a logo wall: three or more small vector images drawn at the same size (customers, investors, integrations)
+    const vector = (u) => /\.svg(\?|#|$)/i.test(u) || u.startsWith('data:image/svg');
+    const sizes = {};
+    for (const im of images.values()) if (vector(im.url)) sizes[`${im.w}x${im.h}`] = (sizes[`${im.w}x${im.h}`] || 0) + im.n;
+    for (const im of images.values()) {
+      if (im.role && im.role !== 'avatar') continue;
+      if (vector(im.url) && im.w <= 200 && im.h <= 100 && im.w > 48 && sizes[`${im.w}x${im.h}`] >= 3 && !ownName(im.alt) && !ownName(fileName(im.url))) im.role = 'partner logo';
     }
 
     // -- video
@@ -435,7 +454,7 @@
         url, streamed: src.startsWith('blob:') || undefined, poster: v.poster ? abs(v.poster) : undefined,
         w: Math.round(r.width), h: Math.round(r.height), y: Math.round(r.top + top0), vw: v.videoWidth || undefined, vh: v.videoHeight || undefined,
         duration: Number.isFinite(v.duration) ? +v.duration.toFixed(1) : undefined, loop: v.loop || undefined, autoplay: v.autoplay || undefined,
-        muted: v.muted || undefined, playing: !v.paused || undefined, role: roleOf(v, r), ...treatment(getComputedStyle(v), v),
+        muted: v.muted || undefined, playing: !v.paused || undefined, role: roleOf(v, r), ...treatment(getComputedStyle(v), v), chrome: chromeOf(v) || undefined,
       });
       if (videos.length >= 20) break;
     }

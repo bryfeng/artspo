@@ -110,9 +110,14 @@ const logo = m.svgs.find((s) => s.role === 'logo');
 assert.ok(logo && logo.file.endsWith('_logo-fieldnote-home.svg'), JSON.stringify(m.svgs.map((s) => s.file)));
 assert.ok(m.svgs.some((s) => s.role === 'illustration'));
 const icons = m.svgs.filter((s) => s.role === 'icon');
-assert.equal(icons.length, 7);
-assert.match(md, /- Icon system: 7 line icons \(9 on the page\) on a 24×24 grid, stroke 1\.5px, round caps and joins, #17161A/);
-ok('SVGs: logo, illustration and 7 icons, summarized as one icon system');
+assert.equal(icons.length, 8);
+assert.match(md, /- Icon system: 8 line icons \(10 on the page\) on a 24×24 grid, stroke 1\.5px, round caps and joins, #17161A/);
+const saved = m.svgs.filter((x) => x.file);
+assert.deepEqual(icons.filter((x) => x.file).map((x) => x.n), [3], 'only the feature icon drawn in the content is saved');
+assert.ok(icons.filter((x) => !x.file).every((x) => x.left === 'ui'));
+assert.ok(!saved.some((x) => /social|brand|partner/.test(x.role) || (x.role === 'icon' && x.control)), saved.map((x) => x.file).join(', '));
+assert.match(md, /\*\*Left out on purpose\*\* — 7 UI icons \(arrows, chevrons, menus: the icon-system line is their spec\); 1 social and integration icons; 6 partner logos \(logo wall, 70×70, filter grayscale\(1\)\)/);
+ok('SVGs: the logo, art and feature icons saved; nav icons and in-link arrows summarized as one icon system, not saved');
 const star = icons.find((s) => s.n === 3);
 const starSvg = file(star.file).toString();
 assert.doesNotMatch(starSvg, /<use/);
@@ -131,6 +136,7 @@ assert.equal(foot.role, 'logo', 'a home-linked wordmark far down the page is the
 assert.match(file(foot.file).toString(), /<path class="c"[^>]*style="[^"]*fill: rgb\(75, 64, 54\)/, 'paint written as inline style, so the SVG\'s own <style> can\'t override it');
 assert.deepEqual(m.svgs.filter((s) => s.role === 'partner logo').map((s) => s.label).sort(), ['Contoso', 'Northwind']);
 assert.equal(svgBy((s) => s.label === 'GitHub').role, 'social icon');
+assert.ok(!svgBy((s) => s.label === 'GitHub').file && !svgBy((s) => s.label === 'Northwind').file, 'other companies\' marks are not saved');
 const hover = svgBy((s) => s.hidden);
 assert.ok(hover && /opacity: 1/.test(file(hover.file).toString()) && !/opacity: 0[;"]/.test(file(hover.file).toString()), 'hover-only SVG saved visible');
 assert.match(md, /hidden until hover or scroll on the page \(saved visible\)/);
@@ -149,12 +155,13 @@ assert.equal(img('/photo.jpg').filter, 'grayscale(1)');
 assert.notEqual(img('/photo.jpg').role, 'poster');
 assert.equal(img('/avatar.png').role, 'avatar');
 assert.equal(img('/hover.png').kind, 'loaded');
+assert.ok(!img('/sprite-bit.png'), 'a tiny image the page never placed is not saved');
 assert.ok(img('/lazy.webp'), 'the lazy image below the fold loads during the scroll pass');
 assert.ok(m.images.some((x) => x.url.startsWith('inline') && x.format === 'svg'), 'data: URI image');
 assert.ok(!m.images.some((x) => /pixel\.gif/.test(x.url)), 'tracking pixel skipped');
 assert.ok(file(img('/hero.jpg').file).equals(fs.readFileSync(path.join(work, 'site/hero.jpg'))), 'saved byte for byte');
-assert.equal(img('/acme-logo.svg').role, 'partner logo');
-assert.notEqual(img('/pancake.svg').role, 'avatar', 'a round vector logo is not a person');
+assert.ok(!img('/acme-logo.svg') && !img('/pancake.svg') && !img('/quick.svg'), 'logo-wall images are not saved');
+assert.equal(m.left.partner, 6);
 ok('images: roles, treatments (cover, radius, grayscale), lazy, inline and unplaced ones; pixel skipped; bytes exact');
 
 // video
@@ -183,7 +190,7 @@ assert.equal(m.rive.length, 1);
 ok('Lottie (.json and .lottie) read for fps, length, keyframes, easings and markers; Rive saved');
 
 // icons, share, fonts
-assert.equal(m.icons.length, 2);
+assert.equal(m.icons.length, 1);
 assert.ok(m.share && file(m.share.file).equals(fs.readFileSync(path.join(work, 'site/share.jpg'))));
 assert.deepEqual(m.fonts, [{ source: 'self-hosted', format: 'ttf', n: 1 }]);
 assert.ok(!assets.some((a) => /\.ttf$/.test(a.path)), 'font files are never saved');

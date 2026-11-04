@@ -23,13 +23,20 @@ network cache, so nothing is downloaded twice.
 
 | Kind | Saved as | Measured |
 |---|---|---|
-| Inline SVG (icons, logo, illustrations) | `assets/svg/NN_<role>.svg`, with the page's CSS paint (fill, stroke, width, caps) written into each element as inline style, in sRGB, so it looks the same on its own (a `<style>` block inside the SVG can't override it); sprite icons (`<use href="#…">`) are drawn in full; art that only appears on hover is saved visible and marked | role, size, viewBox, line or solid, stroke width, caps and joins, colors; the icon set is summarized as one line (grid, stroke, caps, ink) |
+| Inline SVG (logo, illustrations, feature icons) | `assets/svg/NN_<role>.svg`, with the page's CSS paint (fill, stroke, width, caps) written into each element as inline style, in sRGB, so it looks the same on its own (a `<style>` block inside the SVG can't override it); sprite icons (`<use href="#…">`) are drawn in full; art that only appears on hover is saved visible and marked | role, size, viewBox, line or solid, stroke width, caps and joins, colors; the icon set is summarized as one line (grid, stroke, caps, ink) |
 | Images (`<img>`, CSS backgrounds, video posters, images loaded but not placed) | `assets/img/NN_<name>.<ext>` in the original format | role (logo, partner logo, hero, avatar, icon, social icon, background), shown size and file size, object-fit, radius, filter, blend, mask, tiling, alt text |
 | Video | `assets/video/NN_<name>.<ext>`, when it's one file under 15 MB | autoplay, loop, muted, duration, file and shown size, poster |
 | Lottie (`.json`, `.lottie`) | `assets/lottie/` | frame rate, length, size, layers, keyframes and their easing curves, markers |
 | Rive | `assets/rive/` | size only; state machines aren't parsed |
 | Site icon, share image | `assets/icon/`, `assets/share.<ext>` | sizes |
 | Webfonts | not saved: fonts are licensed | where they come from (Google Fonts, Adobe Fonts, self-hosted) and their format |
+
+**Main content only.** Artspo saves the site's own logo (up to 3 versions) and what the main content shows. It
+counts the rest under **Left out on purpose** instead of saving it: UI icons (anything inside a link or button,
+in the nav, or under 32px; the icon-system line is still measured over all of them), social and integration
+icons, partner logos (described once as a logo wall: count, size, ink, filter, opacity), anything else in the
+nav, footer, sidebars, dialogs and cookie layers, images shown 48px or smaller, and images the page loaded but
+never placed when they're under 20 KB. Only the biggest site icon is kept.
 
 Limits per clip: 60 SVGs, 80 images (8 MB each), 4 videos (15 MB each), 8 Lottie files, 60 MB in all. What goes
 over is listed under **Not saved**. Video streamed in pieces (most long or adaptive video) has no single file

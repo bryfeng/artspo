@@ -18,6 +18,8 @@ grad(1600, 900, (23, 22, 26), (58, 91, 217), "hero.jpg", quality=80)
 grad(800, 500, (240, 235, 218), (243, 134, 161), "photo.jpg", quality=80)
 grad(900, 600, (11, 31, 51), (188, 248, 145), "lazy.webp", "WEBP", quality=80)
 grad(600, 400, (90, 90, 90), (200, 200, 200), "hover.png")
+_r = random.Random(7); _h = Image.open(site / "hover.png"); _h.putdata([tuple(min(255, c + _r.randrange(24)) for c in px) for px in _h.getdata()]); _h.save(site / "hover.png")  # a photo-like file size
+grad(24, 24, (90, 90, 90), (200, 200, 200), "sprite-bit.png")  # tiny, loaded and never placed: not worth saving
 grad(1200, 630, (23, 22, 26), (255, 107, 74), "share.jpg", quality=80)
 av = Image.new("RGB", (160, 160), (87, 201, 154)); ImageDraw.Draw(av).ellipse([40, 30, 120, 110], fill=(255, 255, 255)); av.save(site / "avatar.png")
 tx = Image.new("RGB", (40, 40), (251, 250, 247)); ImageDraw.Draw(tx).line([(0, 40), (40, 0)], fill=(230, 227, 220), width=2); tx.save(site / "texture.png")
@@ -30,6 +32,7 @@ page_shell = "<!DOCTYPE html><html lang=en><head><meta charset=utf-8><title>Not 
 (site / "app-icon.png").write_text(page_shell)
 logo_svg = lambda name, fill: f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 148 52"><rect x="10" y="16" width="128" height="20" rx="4" fill="{fill}"/></svg>'
 (site / "acme-logo.svg").write_text(logo_svg("Acme", "#555"))
+for n in ("quick", "thena"): (site / f"{n}.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 71 71"><rect width="71" height="71" fill="#%s"/></svg>' % ("3a5bd9" if n == "quick" else "57c99a"))
 (site / "pancake.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 71 71"><circle cx="35.5" cy="35.5" r="35" fill="#d1884f"/></svg>')
 
 subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=320x180:rate=24", "-t", "2",
@@ -65,7 +68,7 @@ data_svg = "data:image/svg+xml;utf8," + "%3Csvg xmlns='http://www.w3.org/2000/sv
 <meta name="description" content="A demo site for Artspo's media capture.">
 <meta property="og:image" content="/share.jpg">
 <link rel="icon" href="/favicon.png" sizes="32x32"><link rel="icon" href="/app-icon.png" sizes="192x192"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="preload" as="image" href="/hover.png">
+<link rel="preload" as="image" href="/hover.png"><link rel="preload" as="image" href="/sprite-bit.png">
 <style>
 @font-face {{ font-family: Brand; src: url(/brand.ttf); }}
 body {{ margin: 0; font: 16px/1.5 system-ui; color: #17161a; background: #fbfaf7 url(/texture.png) repeat; }}
@@ -84,14 +87,14 @@ section {{ padding: 48px; }}
   <a href="/" aria-label="Fieldnote home"><svg width="120" height="28" viewBox="0 0 120 28"><rect width="28" height="28" rx="7" fill="#17161a"/><circle cx="14" cy="14" r="6" fill="#ff6b4a"/><text x="38" y="20" font-size="16" fill="#17161a">fieldnote</text></svg></a>
   <nav style="display:flex;gap:16px">{''.join(icon(d) for d in icons)}</nav>
   <svg width="0" height="0" style="position:absolute"><symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></symbol></svg>
-  <span>{''.join('<svg class="icon"><use href="#i-star"/></svg>' for _ in range(3))}</span>
 </header>
 <h1>Quiet tools for careful work.</h1>
+<section class="features" style="display:flex;gap:48px">{''.join('<div><svg class="icon" style="width:40px;height:40px"><use href="#i-star"/></svg><p>Feature</p></div>' for _ in range(3))}</section>
 <section><img class="hero" src="/hero.jpg" alt="An orange sun over a blue field"></section>
 <section style="display:flex;gap:32px;align-items:center">
   <img class="photo" src="/photo.jpg" alt="Team at work">
   <img class="avatar" src="/avatar.png" alt="Sam, the founder">
-  <img src="{data_svg}" width="40" height="40" alt="">
+  <img src="{data_svg}" width="64" height="64" alt="">
   <img src="/pixel.gif" width="1" height="1" alt="">
   <svg width="360" height="240" viewBox="0 0 360 240"><defs><linearGradient id="g"><stop offset="0" stop-color="#5b7cff"/><stop offset="1" stop-color="#57c99a"/></linearGradient></defs><path d="M20 200C80 40 200 20 340 120L300 230Z" fill="url(#g)"/><circle cx="260" cy="70" r="30" fill="#ffd25a"/></svg>
 </section>
@@ -103,14 +106,15 @@ section {{ padding: 48px; }}
   <video src="/loop.mp4" muted playsinline style="width:200px"></video>
   <video src="/fake.mp4" autoplay muted playsinline style="width:200px"></video>
   <video muted playsinline poster="/photo.jpg" style="width:200px"></video>
-  <a href="/start" class="cta">Start <svg class="arrow-hover" style="opacity:0" width="56" height="56" viewBox="0 0 26 26"><circle cx="13" cy="13" r="12" fill="#ffebaa"/></svg></a>
+  <a href="/start" class="cta">Start <svg class="arrow" width="20" height="20" viewBox="0 0 24 24"><path d="M5 12h14" stroke="#17161a" fill="none"/></svg></a>
+  <div class="card"><svg class="reveal" style="opacity:0" width="120" height="80" viewBox="0 0 120 80"><circle cx="40" cy="40" r="36" fill="#ffebaa"/></svg></div>
   <svg width="200" height="120" viewBox="0 0 200 120"><rect width="200" height="120" style="fill: oklch(0.627955 0.257683 29.2339)"/></svg>
 </section>
 <section class="trusted" aria-label="Trusted by">
   <svg width="150" height="36" viewBox="0 0 150 36" aria-label="Northwind"><path d="M0 8h150v20H0z" fill="#8a8a8a"/></svg>
   <svg width="140" height="34" viewBox="0 0 140 34" aria-label="Contoso"><path d="M0 8h140v18H0z" fill="#8a8a8a"/></svg>
   <img src="/acme-logo.svg" alt="Acme Logo" width="148" height="52">
-  <img src="/pancake.svg" alt="" width="70" height="70" style="border-radius:50%">
+  {''.join(f'<img src="/{n}.svg" alt="" width="70" height="70" style="border-radius:50%;filter:grayscale(1)">' for n in ("pancake", "quick", "thena"))}
 </section>
 <section><lottie-player src="/anim.json" style="display:block;width:200px;height:200px"></lottie-player></section>
 <div style="height:1800px"></div>
