@@ -29,7 +29,7 @@ import time
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit
 
-VERSION = "0.9.1"
+VERSION = "0.9.2"
 PORT = int(os.environ.get("ARTSPO_PORT") or 47827)
 PINNED_EXTENSION = (os.environ.get("ARTSPO_EXTENSION_ID") or "").strip()
 STATE_DIR = Path(os.environ.get("ARTSPO_HOME") or Path.home() / ".artspo")

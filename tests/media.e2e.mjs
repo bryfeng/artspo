@@ -117,12 +117,28 @@ const star = icons.find((s) => s.n === 3);
 const starSvg = file(star.file).toString();
 assert.doesNotMatch(starSvg, /<use/);
 assert.match(starSvg, /M12 3l2\.7 5\.6/);
-assert.match(starSvg, /stroke="rgb\(23, 22, 26\)"/);
-assert.match(starSvg, /stroke-width="1\.5px"/);
+assert.match(starSvg, /stroke: rgb\(23, 22, 26\)/);
+assert.match(starSvg, /stroke-width: 1\.5px/);
 assert.match(starSvg, /viewBox="0 0 24 24"/);
 ok('a sprite icon (<use href="#…">) is saved as a standalone drawing, with the CSS stroke written in');
 assert.match(file(m.svgs.find((s) => s.role === 'illustration').file).toString(), /linearGradient/);
 ok('an illustration keeps its gradient');
+
+// what real sites got wrong in 0.9.0
+const svgBy = (f) => m.svgs.find(f);
+const foot = svgBy((s) => s.label === 'Fieldnote');
+assert.equal(foot.role, 'logo', 'a home-linked wordmark far down the page is the site\'s logo');
+assert.match(file(foot.file).toString(), /<path class="c"[^>]*style="[^"]*fill: rgb\(75, 64, 54\)/, 'paint written as inline style, so the SVG\'s own <style> can\'t override it');
+assert.deepEqual(m.svgs.filter((s) => s.role === 'partner logo').map((s) => s.label).sort(), ['Contoso', 'Northwind']);
+assert.equal(svgBy((s) => s.label === 'GitHub').role, 'social icon');
+const hover = svgBy((s) => s.hidden);
+assert.ok(hover && /opacity: 1/.test(file(hover.file).toString()) && !/opacity: 0[;"]/.test(file(hover.file).toString()), 'hover-only SVG saved visible');
+assert.match(md, /hidden until hover or scroll on the page \(saved visible\)/);
+const red = svgBy((s) => s.role === 'illustration' && s.colors?.some((c) => /^rgb\(25[45], 0, [0-2]\)$/.test(c)));
+assert.ok(red, JSON.stringify(m.svgs.map((s) => s.colors)));
+assert.match(file(red.file).toString(), /fill: rgb\(25[45], 0, [0-2]\)/);
+assert.doesNotMatch(md, /oklch\(|oklab\(|color\(srgb/);
+ok('roles: own logo anywhere it links home, partner logos, social icons; hover-hidden, <style>-overridden and oklch art saved as shown');
 
 // images
 const img = (name) => m.images.find((x) => x.url.endsWith(name));
@@ -137,6 +153,8 @@ assert.ok(img('/lazy.webp'), 'the lazy image below the fold loads during the scr
 assert.ok(m.images.some((x) => x.url.startsWith('inline') && x.format === 'svg'), 'data: URI image');
 assert.ok(!m.images.some((x) => /pixel\.gif/.test(x.url)), 'tracking pixel skipped');
 assert.ok(file(img('/hero.jpg').file).equals(fs.readFileSync(path.join(work, 'site/hero.jpg'))), 'saved byte for byte');
+assert.equal(img('/acme-logo.svg').role, 'partner logo');
+assert.notEqual(img('/pancake.svg').role, 'avatar', 'a round vector logo is not a person');
 ok('images: roles, treatments (cover, radius, grayscale), lazy, inline and unplaced ones; pixel skipped; bytes exact');
 
 // video
@@ -144,7 +162,13 @@ const v = (name) => m.videos.find((x) => x.src?.endsWith(name));
 assert.ok(v('/loop.mp4').file && v('/loop.mp4').autoplay && v('/loop.mp4').loop);
 assert.equal(v('/loop.mp4').posterFile, img('/photo.jpg').file);
 assert.ok(file(v('/stream.mp4').file).equals(fs.readFileSync(path.join(work, 'site/stream.mp4'))));
-ok('video: saved with its poster; one served in pieces (HTTP 206) is saved whole');
+assert.equal(m.videos.filter((x) => x.src?.endsWith('/loop.mp4')).length, 1);
+assert.equal(v('/loop.mp4').n, 2);
+assert.match(v('/fake.mp4').notSaved, /web page/);
+assert.ok(!assets.some((a) => /fake|app-icon/.test(a.path)), assets.map((a) => a.path).join(', '));
+assert.ok(m.skipped.some((x) => x.what.endsWith('/app-icon.png') && /web page/.test(x.why)));
+assert.ok(m.videos.every((x) => x.src !== url), 'a video with no source is not the page itself');
+ok('video: saved with its poster; one served in pieces (HTTP 206) is saved whole; duplicates and web pages posing as media dropped');
 
 // animation files
 assert.equal(m.lottie.length, 2);
