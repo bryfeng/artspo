@@ -21,6 +21,8 @@ grad(600, 400, (90, 90, 90), (200, 200, 200), "hover.png")
 _r = random.Random(7); _h = Image.open(site / "hover.png"); _h.putdata([tuple(min(255, c + _r.randrange(24)) for c in px) for px in _h.getdata()]); _h.save(site / "hover.png")  # a photo-like file size
 grad(24, 24, (90, 90, 90), (200, 200, 200), "sprite-bit.png")  # tiny, loaded and never placed: not worth saving
 grad(1200, 630, (23, 22, 26), (255, 107, 74), "share.jpg", quality=80)
+grad(400, 400, (200, 170, 150), (120, 90, 80), "jordan.jpg", quality=80)      # a team photo, labeled with a name
+grad(1200, 800, (245, 245, 247), (220, 224, 230), "dashboard.png")           # a product screenshot
 av = Image.new("RGB", (160, 160), (87, 201, 154)); ImageDraw.Draw(av).ellipse([40, 30, 120, 110], fill=(255, 255, 255)); av.save(site / "avatar.png")
 tx = Image.new("RGB", (40, 40), (251, 250, 247)); ImageDraw.Draw(tx).line([(0, 40), (40, 0)], fill=(230, 227, 220), width=2); tx.save(site / "texture.png")
 for n, s in (("favicon.png", 32), ("apple-touch-icon.png", 180)):
@@ -91,9 +93,13 @@ section {{ padding: 48px; }}
 <h1>Quiet tools for careful work.</h1>
 <section class="features" style="display:flex;gap:48px">{''.join('<div><svg class="icon" style="width:40px;height:40px"><use href="#i-star"/></svg><p>Feature</p></div>' for _ in range(3))}</section>
 <section><img class="hero" src="/hero.jpg" alt="An orange sun over a blue field"></section>
-<section style="display:flex;gap:32px;align-items:center">
-  <img class="photo" src="/photo.jpg" alt="Team at work">
+<section style="display:flex;flex-wrap:wrap;gap:32px;align-items:center">
+  <img class="photo" src="/photo.jpg" alt="Morning light on the desk">
   <img class="avatar" src="/avatar.png" alt="Sam, the founder">
+  <img src="/jordan.jpg" alt="Jordan Lee" width="300" height="300">
+  <img src="/dashboard.png" alt="Product dashboard" width="600" height="400">
+  <svg width="120" height="120" viewBox="0 0 24 24"><use href="#i-star"/></svg>
+  <svg class="inked" width="200" height="140" viewBox="0 0 200 140"><style>.c {{ fill: #1b1b1b; }}</style><path class="c" d="M10 130 L100 10 L190 130 Z"/></svg>
   <img src="{data_svg}" width="64" height="64" alt="">
   <img src="/pixel.gif" width="1" height="1" alt="">
   <svg width="360" height="240" viewBox="0 0 360 240"><defs><linearGradient id="g"><stop offset="0" stop-color="#5b7cff"/><stop offset="1" stop-color="#57c99a"/></linearGradient></defs><path d="M20 200C80 40 200 20 340 120L300 230Z" fill="url(#g)"/><circle cx="260" cy="70" r="30" fill="#ffd25a"/></svg>

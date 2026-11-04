@@ -148,7 +148,7 @@ export function isWebPage(d) {
 export async function collectMedia(s, inv, net, { limits = LIMITS, fetchFn = fetch, pageUrl = '' } = {}) {
   const files = [];
   const man = { svgs: [], images: [], videos: [], lottie: [], rive: [], icons: [], share: null, fonts: [], skipped: [], counts: inv?.counts,
-    left: { ui: 0, social: 0, partner: 0, chrome: 0, small: 0 }, logoWall: null };
+    left: { logos: 0, icons: 0, people: 0, ui: 0, chrome: 0, small: 0 }, logoWall: null };
   if (!inv || inv.error) { if (inv?.error) man.error = inv.error; return { files, manifest: man }; }
   let total = 0;
   const fits = (n, cap) => n <= cap && total + n <= limits.totalBytes;
@@ -192,35 +192,33 @@ export async function collectMedia(s, inv, net, { limits = LIMITS, fetchFn = fet
   };
   const WEB_PAGE = 'the address returned a web page, not the file';
 
-  // -- what's worth saving: the site's own logo and the main content's media. UI icons (arrows, chevrons, menus),
-  // other companies' marks, and the nav, footer and overlays are counted and described instead.
+  // -- what's worth saving: the page's visual material (illustration, texture, imagery, video, animation). Logos (the
+  // site's and everyone else's), icons, people, product screens, and the nav, footer and overlays are counted instead.
   const leave = (x, svg) => {
-    if (x.role === 'logo') return null;
-    if (/social|brand/.test(x.role || '')) return 'social';
-    if (x.role === 'partner logo') return 'partner';
-    if (svg && x.role === 'icon') return !x.chrome && !x.control && Math.max(x.w, x.h) >= 32 ? null : 'ui';
+    if (x.role === 'logo' || x.role === 'partner logo') return 'logos';
+    if (svg && (x.role === 'icon' || /social|brand/.test(x.role || ''))) return 'icons';
+    if (!svg && /social|brand/.test(x.role || '')) return 'logos';
+    if (!svg && x.subject) return x.subject;
     if (!svg && x.placed && x.w && x.h && x.w <= 48 && x.h <= 48) return 'small';
     if (x.chrome) return 'chrome';
     return null;
   };
   const wall = [];
-  const leaveOut = (x, why) => { man.left[why] += x.n || 1; if (why === 'partner') wall.push(x); };
+  const leaveOut = (x, why) => { man.left[why] += 1; if (x.role === 'partner logo') wall.push(x); };
 
   // -- vector art: markup straight from the page
   // the site's logo, then larger art and partner logos, then its icons, then social and other brands' icons
   const order = (s) => (s.role === 'logo' ? 0 : s.role === 'icon' ? 2 : /social|brand/.test(s.role || '') ? 3 : 1);
   const svgs = [...(inv.svgs || [])].sort((a, b) => order(a) - order(b) || b.n - a.n || a.y - b.y);
   let i = 0;
-  let logos = 0;
   for (const v of svgs) {
-    const why = leave(v, true) || (v.role === 'logo' && logos >= 3 ? 'chrome' : null);
+    const why = leave(v, true);
     if (why) {
       leaveOut(v, why);
       const { markup, key, ...meta } = v;
       if (man.svgs.length < 400) man.svgs.push({ ...meta, left: why }); // kept for the icon-system line
       continue;
     }
-    if (v.role === 'logo') logos++;
     if (i >= limits.svgs) { skip(`${svgs.length - i} more SVGs`, `over the ${limits.svgs}-file limit`); break; }
     if (!v.markup) { skip(`SVG ${v.w}×${v.h}${v.role ? ' (' + v.role + ')' : ''}`, 'markup over 200 KB'); continue; }
     const d = { text: '<?xml version="1.0" encoding="UTF-8"?>\n' + v.markup };
@@ -327,41 +325,15 @@ export async function collectMedia(s, inv, net, { limits = LIMITS, fetchFn = fet
   if (wall.length) {
     const top = (f) => { const c = {}; for (const x of wall) { const k = f(x); if (k != null && k !== '') c[k] = (c[k] || 0) + 1; } const e = Object.entries(c).sort((a, b) => b[1] - a[1])[0]; return e && e[1] >= wall.length / 2 ? e[0] : undefined; };
     man.logoWall = {
-      n: wall.reduce((t, x) => t + (x.n || 1), 0),
+      n: wall.length,
       size: top((x) => (x.w && x.h ? `${x.w}×${x.h}` : null)),
       filter: top((x) => x.filter), opacity: top((x) => x.opacity), blend: top((x) => x.blend),
       ink: top((x) => (x.colors?.length === 1 ? x.colors[0] : null)),
     };
   }
 
-  // -- site icon (the biggest one) and share image
-  const icons = [...(inv.icons || [])].sort((a, b) => (parseInt(b.sizes) || (b.type === 'image/svg+xml' ? 999 : 0)) - (parseInt(a.sizes) || (a.type === 'image/svg+xml' ? 999 : 0)));
-  i = 0;
-  for (const ic of icons) {
-    if (i >= 1) break; // the best one: the site's mark at its largest
-    const d = await bodyOf(ic.url, 1e6);
-    if (d?.notMedia) { skip(ic.url, WEB_PAGE); continue; }
-    if (!d || d.tooBig || !fits(sizeOf(d), 1e6)) continue;
-    const ext = extOf(d.mime || ic.type, ic.url);
-    if (ext === 'bin') continue;
-    const file = `assets/icon/${pad(++i)}_${nameOf('', ic.rel.replace(/\s+/g, '-'))}.${ext}`;
-    put(file, d, d.mime || ic.type || 'image/png');
-    const size = await imageSize(d);
-    man.icons.push({ file, src: ic.url, rel: ic.rel, sizes: ic.sizes || (size ? `${size.w}x${size.h}` : undefined) });
-  }
-  if (inv.share) {
-    const d = await bodyOf(inv.share, 4e6);
-    if (d?.notMedia) skip(inv.share, WEB_PAGE);
-    if (d && !d.notMedia && !d.tooBig && fits(sizeOf(d), 4e6)) {
-      const ext = extOf(d.mime, inv.share);
-      if (ext !== 'bin') {
-        const file = `assets/share.${ext}`;
-        put(file, d, d.mime || 'image/jpeg');
-        const size = await imageSize(d);
-        man.share = { file, src: inv.share, w: size?.w, h: size?.h };
-      }
-    }
-  }
+  // -- site icon and share image: not saved. Both are logo and headline cards; the page's own art is above.
+  if ((inv.icons || []).length) man.left.logos += 1;
 
   // -- webfonts: where they come from, never the files (fonts are licensed)
   const fonts = new Map();

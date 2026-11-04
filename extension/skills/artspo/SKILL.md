@@ -18,7 +18,7 @@ Artspo is a Chrome extension that clips websites as design inspiration. The libr
 Your job is to keep that chain intact: every work traces to patterns, every pattern traces to clips.
 `catalogue.html` shows all of it on one page, with that lineage clickable.
 
-Skill version 0.9.3. The library's `AGENTS.md` ends with the version of the extension that wrote it. If that's newer
+Skill version 0.9.4. The library's `AGENTS.md` ends with the version of the extension that wrote it. If that's newer
 than this skill, tell the user once that their skill is out of date and how to update it:
 `curl -fsSL https://raw.githubusercontent.com/bryfeng/artspo/main/install.sh | sh`, then restart the agent.
 
@@ -39,9 +39,9 @@ artspo/
       seen.jpg                      viewport exactly as the user saw it when clipping
       full.jpg                      full page, 1440px wide
       filmstrip/NN.jpg              viewport frames top → bottom during an automated scroll
-      assets/                       the page's own media, listed and measured under ## Media in clip.md:
-        svg/  img/  video/            the logo, illustrations, feature icons, images, short videos
-        lottie/  rive/  icon/         animation files, the site icon; share.<ext> is the social-share image
+      assets/                       the page's visual material, listed and measured under ## Media in clip.md:
+        svg/  img/  video/            illustration and diagrams, imagery and textures, short videos
+        lottie/  rive/                animation files
   patterns/
     INDEX.md                        every pattern, one line each; starred first
     languages/<id>.md
@@ -66,8 +66,9 @@ Older libraries may have `_generated/` instead of `works/`. The catalogue lists 
 2. Read the frontmatter and **Note** of every clip in scope before going deeper.
 3. Read the full `clip.md` only for clips you'll draw from. Open images only to judge feel: `seen.jpg` for the
    impression, `full.jpg` for structure, the filmstrip for pacing.
-   `assets/` holds the page's own files. Look at its icons, illustrations and images to judge their style (stroke,
+   `assets/` holds the page's visual material. Look at its illustrations and images to judge their style (line,
    corners, fill, color, crop, treatment). A Lottie file is exact motion: read it for keyframes and easings.
+   Icons and logos aren't saved: the **Icon system** and **Left out on purpose** lines describe them.
    Trust the **Media** list in clip.md over the folder: a re-inspection can leave older files behind.
 4. There is one clip per page: clipping a page again updates its folder. Skip clips whose frontmatter says
    `status: superseded` (duplicates left by older versions; `superseded_by` points to the current one).
@@ -81,7 +82,7 @@ Older libraries may have `_generated/` instead of `works/`. The catalogue lists 
 | Motion: CSS animations/transitions, `element.animate`, GSAP lines | Exact durations, easings, staggers. |
 | Motion lines marked "JS-driven, sampled from inline styles" | Approximate: duration ±1 frame, easing unknown. |
 | Declared transitions | Hover/focus timings that were never triggered. The end state is unknown. |
-| Media | Files saved from what the page loaded, with how each was shown (size, fit, radius, filter). The icon-system line and Lottie easings are measured. Roles are inferred from size, placement and labels: `logo` is the site's own; `partner logo`, `social icon` and `brand icon` are other companies' marks (customers, investors, integrations), never part of the site's icon system. Only the logo and main-content media are saved; UI icons, other brands' marks and the nav and footer are counted under "Left out on purpose", so use the icon-system and logo-wall lines for those. |
+| Media | Files saved from what the page loaded, with how each was shown (size, fit, radius, filter). The icon-system line and Lottie easings are measured. Roles are inferred from size, placement and labels: `logo` is the site's own; `partner logo`, `social icon` and `brand icon` are other companies' marks (customers, investors, integrations), never part of the site's icon system. None of these are saved: logos, icons, people and product screens are counted under "Left out on purpose", so use the icon-system and logo-wall lines for those. |
 | Not captured | Known gaps. Never fill these with guesses. |
 | Capture diagnostics | If it says THROTTLED, treat that clip's JS motion as unreliable. |
 
@@ -283,6 +284,30 @@ Patterns land in `patterns/imported/<book>/`, each crediting its source. Then:
 - Imported patterns have no clips in this library. Treat them as recipes, and say when a choice rests on one.
 - Without importing, any agent can use a book directly: read its `artbook.md` (or take one Copy prompt).
 
+## Curate the saved media
+
+Artspo saves a page's **visual material**: illustration and line art, diagrams and charts drawn as art, gradients,
+textures, grain and patterns, 3D renders and objects, photography of places, nature, architecture and things,
+posters and type-led graphics, video loops and animation files. That's what a user studies for a look.
+
+It leaves out what's about identity or content, not look: **logos** (the site's and everyone else's), **icons**,
+**photos of people** (headshots, team and founder shots, portraits, fashion or lifestyle shots of a person),
+**product UI screenshots** (dashboards, app screens, website screenshots, UI component demos), and the site icon
+and share image. The extension catches what it can from labels and placement, but it can't see pictures, so
+unlabeled people and screenshots get through. When the user asks to clean up, curate or "keep just the visuals",
+or after a large batch of clips if they ask you to tidy it:
+
+1. `python3 <skill dir>/curate.py <library> [--collection NAME]` writes numbered contact sheets to
+   `<library>/_curate/sheet-NN.jpg` (needs Pillow: `pip install pillow`).
+2. Open every sheet and list the tile numbers of each kind to leave out. Judge the picture, not the file name.
+   Keep hands and objects, illustrated or sculpted figures, and landscapes where people are incidental; leave out
+   pictures whose subject is a person. When unsure, keep it and tell the user.
+3. Set each kind aside: `python3 <skill dir>/curate.py <library> --drop 3 17 40-44 --why people` (and
+   `--why product-ui`, `--why logos`). Files move to `<library>/_set-aside/<why>/`, never deleted, and their lines
+   leave clip.md.
+4. Tell the user how many of each you set aside and where, and that re-inspecting a clip brings its media back,
+   so curate again after a re-inspection.
+
 ## Clip pages for the user (Artspo MCP tools)
 
 If you have the `artspo_*` tools (the Artspo MCP server, bundled with the Claude Code plugin; elsewhere the user
@@ -305,9 +330,9 @@ adds `python3 ~/.artspo/mcp/artspo_mcp.py`), you can add pages to the library in
 
 - **Rebuild, don't copy.** Never reproduce a site's code, logos, illustrations, photography or copy. Recipes
   are generic reconstructions from measurements.
-- **Assets are reference, not material.** A clip's `assets/` are the site's own logos, icons, illustrations,
-  photos, video and animations. Study them, then rebuild the style: an icon set on the same grid and stroke,
-  imagery with the same crop and treatment, a Lottie timing re-used in CSS. Never copy those files into a work,
+- **Assets are reference, not material.** A clip's `assets/` are the site's own illustrations, imagery, video
+  and animations. Study them, then rebuild the style: art with the same line and fill, imagery with the same crop
+  and treatment, a Lottie timing re-used in CSS. Never copy those files into a work,
   a pattern's specimen or a book, unless the user tells you the site is theirs.
 - **Fonts carry licenses.** If you recommend a webfont from a clip, flag that it needs a license, or suggest
   a free alternative with similar metrics.

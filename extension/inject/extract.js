@@ -280,6 +280,18 @@
       for (let e = el, k = 0; e && k < 12; e = e.parentElement, k++) if (CONSENT.test(`${e.id || ''} ${e.getAttribute('class') || ''}`)) return true;
       return false;
     };
+    // what an image shows, from its words: people (team, founders, authors, a person's name) or product screens.
+    // Labels only, so it misses unlabeled photos; the skill's curate step looks at the pictures themselves.
+    const PEOPLE = /(^|[\s_\-/.])(team|founders?|ceo|cto|coo|cfo|headshots?|portraits?|avatars?|authors?|speakers?|people|persons?|staff|employees?|members?|profiles?|bio|selfie|faces?|testimonials?|interviewe?e?s?|hosts?|guests?|leadership|byline|reviewers?)([\s_\-.]|$)/i;
+    const SCREEN = /(^|[\s_\-/.])(screenshots?|screens?|dashboards?|app|ui|interface|mockups?|preview|demo|console|admin|product-shot)([\s_\-.]|$)/i;
+    const personName = (t) => /^[A-Z][a-zà-ÿ'’-]+( [A-Z][a-zà-ÿ'’.-]*){1,2}$/.test(String(t || '').trim());
+    const around = (el) => { let t = ''; for (let e = el.parentElement, k = 0; e && k < 6; e = e.parentElement, k++) t += ` ${e.id || ''} ${e.getAttribute('class') || ''}`; return t; };
+    const subjectOf = (el, r, words, role) => {
+      if (role === 'avatar' || PEOPLE.test(words) || PEOPLE.test(around(el))) return 'people';
+      if (personName(el.getAttribute('alt')) && !ownName(el.getAttribute('alt')) && r.width <= 720) return 'people';
+      if (SCREEN.test(words)) return 'ui';
+      return undefined;
+    };
     const inControl = (el) => !!el.closest('a,button,[role="button"],summary,label,select');
     const yOf = (el, r) => (pinned(el) ? r.top : r.top + top0);
     // the site's own name, to tell its logo from the partner, customer and social logos around it
@@ -431,6 +443,8 @@
         repeat: kind === 'background' && cs.backgroundRepeat !== 'no-repeat' && !/cover|contain/.test(cs.backgroundSize) ? cs.backgroundRepeat : undefined,
         ...treatment(cs, el), n: 1, chrome: chromeOf(el) || undefined,
       });
+      const im = images.get(url);
+      im.subject = subjectOf(el, r, `${alt} ${el.id || ''} ${el.getAttribute('class') || ''} ${url.startsWith('data:') ? '' : fileName(url)}`, im.role);
     }
     // a logo wall: three or more small vector images drawn at the same size (customers, investors, integrations)
     const vector = (u) => /\.svg(\?|#|$)/i.test(u) || u.startsWith('data:image/svg');
