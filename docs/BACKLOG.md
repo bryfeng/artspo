@@ -26,7 +26,8 @@ Implementation notes:
 - **Motion quality checks.** Flag jank (long frames during an animation), animations of layout properties, and missing `prefers-reduced-motion` handling.
 - **Replica comparison.** Given a generated page, screenshot it at 1440×900 and diff it against the source clip's seen.jpg and timings.
 - **Enrich step.** Optional agent pass that appends a `## Deep dive` (REA or similar) for clips with privately bundled GSAP or WebGL.
-- **Gated agent bridge.** Let an agent request a clip or re-inspect through a local, user-approved channel instead of only reading files.
+- **More over the agent bridge.** 0.8.0 lets an agent request clips (user-approved) through the MCP server. Next
+  candidates: re-inspect a clip, and hold requests at the server while Chrome is closed instead of failing.
 - **Chrome Web Store listing.** Prepared in STORE.md: needs the developer account, screenshots and promo tile at
   store sizes, and the reviewer screencast. Start unlisted.
 - **Book that updates itself.** Today a book is a rebuild plus a push. A GitHub Action that rebuilds it when a

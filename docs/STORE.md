@@ -84,8 +84,11 @@ Paste into the "notes" field if the dashboard offers one, or keep for a reply if
 > screenshot of the visible tab. When the user is idle, it opens the clipped URL in a separate background tab that
 > it creates, attaches chrome.debugger to that tab only, scrolls and measures it, writes the results as files to
 > the Downloads folder, detaches and closes the tab. The extension has no server. Its only network requests are
-> the clipped page itself and that page's stylesheets, fetched to read its animation keyframes; nothing is sent
-> anywhere. Source: https://github.com/bryfeng/artspo. A 60-second screencast of one inspection: <link>.
+> the clipped page itself and that page's stylesheets, fetched to read its animation keyframes, plus an optional
+> WebSocket to 127.0.0.1 (this computer only), where the user's own coding agent can run Artspo's companion MCP
+> server to request clips; the user approves each request in the popup, and the connection can be turned off in
+> setup. Nothing is sent off the computer. Source: https://github.com/bryfeng/artspo. A 60-second screencast of
+> one inspection: <link>.
 
 **Screencast to record:** clip a site with the popup, press **Process now**, show the background tab opening and
 closing, then open the clip's folder and its `clip.md`.

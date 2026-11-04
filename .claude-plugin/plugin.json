@@ -1,6 +1,6 @@
 {
   "name": "artspo",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Turn websites you clipped with the Artspo Chrome extension (measured palette, type, shape and motion) into design languages, techniques, tokens, motion specs and pages, and publish or import shareable books.",
   "author": {
     "name": "bryfeng",
@@ -20,6 +20,12 @@
   "skills": [
     "./extension/skills/artspo"
   ],
+  "mcpServers": {
+    "artspo": {
+      "command": "python3",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/artspo_mcp.py"]
+    }
+  },
   "documentationUrl": "https://github.com/bryfeng/artspo/blob/main/docs/TUTORIAL.md",
   "supportUrl": "https://github.com/bryfeng/artspo/issues",
   "privacyPolicyUrl": "https://github.com/bryfeng/artspo/blob/main/docs/PRIVACY.md"

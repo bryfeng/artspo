@@ -129,3 +129,12 @@ footer select { width: auto; padding: 2px 4px; font-size: 12px; margin: 0 3px; }
 .foot-msg code { display: block; margin-top: 4px; color: var(--ink); word-break: break-all; user-select: all; }
 footer { flex-wrap: wrap; gap: 6px 12px; }
 .links .link { white-space: nowrap; }
+
+#requests { margin-bottom: 12px; display: grid; gap: 8px; }
+.request { padding: 10px; background: var(--surface); border: 1px solid var(--run); border-radius: 10px; }
+.request-head { font-size: 12.5px; margin-bottom: 6px; }
+.request ul { margin: 0 0 8px; padding-left: 16px; color: var(--muted); font-size: 11.5px; }
+.request li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.request .row-btns { display: flex; gap: 6px; justify-content: flex-end; }
+.request .approve { border-color: var(--run); color: var(--run); font-weight: 600; }
+.request button:disabled { opacity: 0.5; cursor: default; }

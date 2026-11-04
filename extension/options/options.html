@@ -48,6 +48,21 @@
     <p>Coding agents (Claude Code, Codex, Cursor, Gemini CLI, Copilot) learn Artspo from a skill. Install or update it in Terminal, then restart your agent:</p>
     <div class="cmd"><code id="installCmd">curl -fsSL https://raw.githubusercontent.com/bryfeng/artspo/main/install.sh | sh</code><button type="button" class="ghost copy" data-copy="installCmd">Copy</button></div>
     <p class="fine">No skill support? Nothing to install: the library carries its own instructions in <code>AGENTS.md</code>, written with your first clip. Point your agent at the library folder and start with "Read AGENTS.md first."</p>
+
+    <h3>Let your agent clip pages</h3>
+    <p>With the Artspo MCP server, your agent can ask Artspo to clip pages for you ("find five fintech landing pages and clip them"). It runs on this computer: nothing is hosted and there's no account. Pages open in your own Chrome, logged-in sessions included, so by default you approve each request in the popup.</p>
+    <div class="row">
+      <select id="agents" aria-label="Agent clipping">
+        <option value="ask">Ask me first</option>
+        <option value="auto">Clip without asking</option>
+        <option value="off">Off</option>
+      </select>
+      <span class="fine" id="agentsSaved" hidden>Saved</span>
+    </div>
+    <p class="fine" id="bridgeStatus"></p>
+    <p class="fine">The Claude Code plugin includes the server (<code>/plugin install artspo --marketplace bryfeng/artspo</code>). Otherwise, <code>sh install.sh</code> puts it in <code>~/.artspo/mcp/</code>, and this adds it to Claude Code:</p>
+    <div class="cmd"><code id="mcpCmd">claude mcp add --scope user artspo -- python3 ~/.artspo/mcp/artspo_mcp.py</code><button type="button" class="ghost copy" data-copy="mcpCmd">Copy</button></div>
+    <p class="fine">Codex, Cursor and others: see <a href="https://github.com/bryfeng/artspo/blob/main/docs/MCP.md" target="_blank" rel="noopener">docs/MCP.md</a>.</p>
   </section>
 
   <section id="s-inspect">

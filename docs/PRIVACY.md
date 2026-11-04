@@ -21,7 +21,9 @@ duplicating it.
 | `idle`, `alarms` | to run inspections while you're away |
 
 **Network.** Inspection loads the page you clipped, plus any stylesheets it uses (to read its animations).
-Nothing else.
+The extension also looks for the Artspo MCP server on this computer (`127.0.0.1`, never the internet), so your
+own coding agent can ask it to clip pages. By default you approve each request in the popup; turn it off in setup
+under *Let your agent clip pages*. Nothing else. See [MCP.md](MCP.md).
 
 **Sharing.** Your library stays on your computer until you or your agent publish something. A published book
 leaves out logged-in pages, your notes, page text and, unless you ask for them, screenshots of the sites you
