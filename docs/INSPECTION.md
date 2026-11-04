@@ -28,15 +28,19 @@ network cache, so nothing is downloaded twice.
 | Video | `assets/video/NN_<name>.<ext>`, when it's one file under 15 MB | autoplay, loop, muted, duration, file and shown size, poster |
 | Lottie (`.json`, `.lottie`) | `assets/lottie/` | frame rate, length, size, layers, keyframes and their easing curves, markers |
 | Rive | `assets/rive/` | size only; state machines aren't parsed |
-| Site icon, share image | `assets/icon/`, `assets/share.<ext>` | sizes |
 | Webfonts | not saved: fonts are licensed | where they come from (Google Fonts, Adobe Fonts, self-hosted) and their format |
 
-**Main content only.** Artspo saves the site's own logo (up to 3 versions) and what the main content shows. It
-counts the rest under **Left out on purpose** instead of saving it: UI icons (anything inside a link or button,
-in the nav, or under 32px; the icon-system line is still measured over all of them), social and integration
-icons, partner logos (described once as a logo wall: count, size, ink, filter, opacity), anything else in the
-nav, footer, sidebars, dialogs and cookie layers, images shown 48px or smaller, and images the page loaded but
-never placed when they're under 20 KB. Only the biggest site icon is kept.
+**Visual material only.** Artspo saves what carries a page's look: illustration and diagrams, textures and
+patterns, imagery, video and animation files. It counts the rest under **Left out on purpose** instead of saving it:
+logos (the site's and others'; a logo wall is described once by count, size, ink, filter and opacity), icons (the
+icon-system line is still measured over all of them), photos of people and product screenshots that their labels
+or placement give away (avatars, team and author sections, a person's name as alt text; screenshot, dashboard, app
+or UI in the name), anything in the nav, footer, sidebars, dialogs and cookie layers, images shown 48px or smaller,
+and images the page loaded but never placed when they're under 20 KB. The site icon and share image aren't saved.
+
+Labels catch few people and screenshots (on one real library, 3 of 55 people photos and 9 of 164 screenshots), so
+the skill's **curate** step finishes the job: `curate.py` makes numbered contact sheets, an agent looks at them, and
+the files it picks move to `_set-aside/`.
 
 Limits per clip: 60 SVGs, 80 images (8 MB each), 4 videos (15 MB each), 8 Lottie files, 60 MB in all. What goes
 over is listed under **Not saved**. Video streamed in pieces (most long or adaptive video) has no single file

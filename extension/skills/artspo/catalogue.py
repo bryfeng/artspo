@@ -324,7 +324,7 @@ def assets_of(d, body):
 
 def read_clips(lib):
     clips, superseded = [], 0
-    for coll in sorted(p for p in lib.iterdir() if p.is_dir() and p.name not in RESERVED and not p.name.startswith(".")):
+    for coll in sorted(p for p in lib.iterdir() if p.is_dir() and p.name not in RESERVED and not p.name.startswith((".", "_"))):
         for d in sorted(p for p in coll.iterdir() if p.is_dir()):
             f = d / "clip.md"
             if not f.exists():

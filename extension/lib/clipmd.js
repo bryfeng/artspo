@@ -620,7 +620,7 @@ export function mediaSection(m) {
     L.push(m.error ? `_Media wasn't read: ${m.error}_` : '_No images, vector art, video or animation files found on the page._', '');
     return L;
   }
-  L.push(`${saved} file${saved === 1 ? '' : 's'} in assets/ (${kb(m.bytes || 0)}): the site's logo and its main content's media, saved as reference. Study them; rebuild the style, don't reuse the files.`, '');
+  L.push(`${saved} file${saved === 1 ? '' : 's'} in assets/ (${kb(m.bytes || 0)}): the page's visual material (art, texture, imagery, motion), saved as reference. Study them; rebuild the style, don't reuse the files.`, '');
   const svgs = (m.svgs || []).filter((s) => s.file);
   const sys = iconSystem(m.svgs);                       // measured over every icon, saved or not
   if (svgs.length || sys) {
@@ -658,9 +658,10 @@ export function mediaSection(m) {
   }
   const left = m.left || {}, wall = m.logoWall;
   const out = [
-    left.ui && `${left.ui} UI icons (arrows, chevrons, menus: the icon-system line is their spec)`,
-    left.social && `${left.social} social and integration icons`,
-    left.partner && `${left.partner} partner logos${wall ? ` (logo wall${[wall.size && `, ${wall.size}`, wall.ink && `, one ink ${hex(wall.ink)}`, wall.filter && `, filter ${wall.filter}`, wall.opacity != null && `, opacity ${wall.opacity}`, wall.blend && `, ${wall.blend} blend`].filter(Boolean).join('')})` : ''}`,
+    left.logos && `${left.logos} logos (the site's own and others'${wall ? `; a logo wall of ${wall.n}${[wall.size && `, ${wall.size}`, wall.ink && `, one ink ${hex(wall.ink)}`, wall.filter && `, filter ${wall.filter}`, wall.opacity != null && `, opacity ${wall.opacity}`, wall.blend && `, ${wall.blend} blend`].filter(Boolean).join('')}` : ''})`,
+    left.icons && `${left.icons} icons (the icon-system line is their spec)`,
+    left.people && `${left.people} photos of people`,
+    left.ui && `${left.ui} product screenshots`,
     left.chrome && `${left.chrome} more from the nav, footer and overlays`,
     left.small && `${left.small} images 48px or smaller`,
   ].filter(Boolean);

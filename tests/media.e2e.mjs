@@ -107,33 +107,31 @@ ok(`inspection ran clean and saved ${assets.length} media files`);
 
 // vector art
 const logo = m.svgs.find((s) => s.role === 'logo');
-assert.ok(logo && logo.file.endsWith('_logo-fieldnote-home.svg'), JSON.stringify(m.svgs.map((s) => s.file)));
+assert.ok(logo && !logo.file && logo.left === 'logos', 'the site\'s logo is recognized, and not saved');
 assert.ok(m.svgs.some((s) => s.role === 'illustration'));
 const icons = m.svgs.filter((s) => s.role === 'icon');
 assert.equal(icons.length, 8);
 assert.match(md, /- Icon system: 8 line icons \(10 on the page\) on a 24×24 grid, stroke 1\.5px, round caps and joins, #17161A/);
 const saved = m.svgs.filter((x) => x.file);
-assert.deepEqual(icons.filter((x) => x.file).map((x) => x.n), [3], 'only the feature icon drawn in the content is saved');
-assert.ok(icons.filter((x) => !x.file).every((x) => x.left === 'ui'));
-assert.ok(!saved.some((x) => /social|brand|partner/.test(x.role) || (x.role === 'icon' && x.control)), saved.map((x) => x.file).join(', '));
-assert.match(md, /\*\*Left out on purpose\*\* — 7 UI icons \(arrows, chevrons, menus: the icon-system line is their spec\); 1 social and integration icons; 6 partner logos \(logo wall, 70×70, filter grayscale\(1\)\)/);
-ok('SVGs: the logo, art and feature icons saved; nav icons and in-link arrows summarized as one icon system, not saved');
-const star = icons.find((s) => s.n === 3);
+assert.ok(icons.every((x) => !x.file && x.left === 'icons'), 'no icon is saved');
+assert.ok(saved.length && saved.every((x) => /illustration|graphic|hero/.test(x.role)), saved.map((x) => `${x.file} ${x.role}`).join(', '));
+assert.match(md, /\*\*Left out on purpose\*\* — 9 logos \(the site's own and others'; a logo wall of 6, 70×70, filter grayscale\(1\)\); 9 icons \(the icon-system line is their spec\); 2 photos of people; 1 product screenshots/);
+ok('SVGs: only art is saved; logos and icons are counted, and icons summarized as one icon system');
+const star = m.svgs.find((s) => s.file && s.w === 120 && s.viewBox === '0 0 24 24');
 const starSvg = file(star.file).toString();
 assert.doesNotMatch(starSvg, /<use/);
 assert.match(starSvg, /M12 3l2\.7 5\.6/);
-assert.match(starSvg, /stroke: rgb\(23, 22, 26\)/);
-assert.match(starSvg, /stroke-width: 1\.5px/);
-assert.match(starSvg, /viewBox="0 0 24 24"/);
-ok('a sprite icon (<use href="#…">) is saved as a standalone drawing, with the CSS stroke written in');
-assert.match(file(m.svgs.find((s) => s.role === 'illustration').file).toString(), /linearGradient/);
+assert.match(starSvg, /fill: rgb\(0, 0, 0\)/);
+ok('a sprite (<use href="#…">) is saved as a standalone drawing, with its paint written in');
+assert.match(file(m.svgs.find((s) => s.file && s.w === 360).file).toString(), /linearGradient/);
 ok('an illustration keeps its gradient');
 
 // what real sites got wrong in 0.9.0
 const svgBy = (f) => m.svgs.find(f);
 const foot = svgBy((s) => s.label === 'Fieldnote');
 assert.equal(foot.role, 'logo', 'a home-linked wordmark far down the page is the site\'s logo');
-assert.match(file(foot.file).toString(), /<path class="c"[^>]*style="[^"]*fill: rgb\(75, 64, 54\)/, 'paint written as inline style, so the SVG\'s own <style> can\'t override it');
+const inked = svgBy((s) => s.file && s.w === 200 && s.h === 140);
+assert.match(file(inked.file).toString(), /<path class="c"[^>]*style="[^"]*fill: rgb\(75, 64, 54\)/, 'paint written as inline style, so the SVG\'s own <style> can\'t override it');
 assert.deepEqual(m.svgs.filter((s) => s.role === 'partner logo').map((s) => s.label).sort(), ['Contoso', 'Northwind']);
 assert.equal(svgBy((s) => s.label === 'GitHub').role, 'social icon');
 assert.ok(!svgBy((s) => s.label === 'GitHub').file && !svgBy((s) => s.label === 'Northwind').file, 'other companies\' marks are not saved');
@@ -153,7 +151,10 @@ assert.equal(img('/hero.jpg').fit, 'cover');
 assert.equal(img('/hero.jpg').radius, '24px');
 assert.equal(img('/photo.jpg').filter, 'grayscale(1)');
 assert.notEqual(img('/photo.jpg').role, 'poster');
-assert.equal(img('/avatar.png').role, 'avatar');
+assert.ok(!img('/avatar.png') && !img('/jordan.jpg'), 'people are not saved: an avatar, and a photo labeled with a name');
+assert.ok(!img('/dashboard.png'), 'a product screenshot is not saved');
+assert.equal(m.left.people, 2);
+assert.equal(m.left.ui, 1);
 assert.equal(img('/hover.png').kind, 'loaded');
 assert.ok(!img('/sprite-bit.png'), 'a tiny image the page never placed is not saved');
 assert.ok(img('/lazy.webp'), 'the lazy image below the fold loads during the scroll pass');
@@ -161,7 +162,7 @@ assert.ok(m.images.some((x) => x.url.startsWith('inline') && x.format === 'svg')
 assert.ok(!m.images.some((x) => /pixel\.gif/.test(x.url)), 'tracking pixel skipped');
 assert.ok(file(img('/hero.jpg').file).equals(fs.readFileSync(path.join(work, 'site/hero.jpg'))), 'saved byte for byte');
 assert.ok(!img('/acme-logo.svg') && !img('/pancake.svg') && !img('/quick.svg'), 'logo-wall images are not saved');
-assert.equal(m.left.partner, 6);
+assert.equal(m.logoWall.n, 6);
 ok('images: roles, treatments (cover, radius, grayscale), lazy, inline and unplaced ones; pixel skipped; bytes exact');
 
 // video
@@ -173,7 +174,6 @@ assert.equal(m.videos.filter((x) => x.src?.endsWith('/loop.mp4')).length, 1);
 assert.equal(v('/loop.mp4').n, 2);
 assert.match(v('/fake.mp4').notSaved, /web page/);
 assert.ok(!assets.some((a) => /fake|app-icon/.test(a.path)), assets.map((a) => a.path).join(', '));
-assert.ok(m.skipped.some((x) => x.what.endsWith('/app-icon.png') && /web page/.test(x.why)));
 assert.ok(m.videos.every((x) => x.src !== url), 'a video with no source is not the page itself');
 ok('video: saved with its poster; one served in pieces (HTTP 206) is saved whole; duplicates and web pages posing as media dropped');
 
@@ -190,11 +190,11 @@ assert.equal(m.rive.length, 1);
 ok('Lottie (.json and .lottie) read for fps, length, keyframes, easings and markers; Rive saved');
 
 // icons, share, fonts
-assert.equal(m.icons.length, 1);
-assert.ok(m.share && file(m.share.file).equals(fs.readFileSync(path.join(work, 'site/share.jpg'))));
+assert.equal(m.icons.length, 0);
+assert.ok(!m.share && !assets.some((a) => /^assets\/(icon\/|share\.)/.test(a.path)), 'no site icon or share image');
 assert.deepEqual(m.fonts, [{ source: 'self-hosted', format: 'ttf', n: 1 }]);
 assert.ok(!assets.some((a) => /\.ttf$/.test(a.path)), 'font files are never saved');
-ok('site icons and share image saved; webfont listed by source, not saved');
+ok('site icon and share image not saved; webfont listed by source, not saved');
 
 // clip.md
 assert.match(md, /^## Media\n\d+ files in assets\//m);
@@ -207,7 +207,7 @@ ok('clip.md: Media section, and Not captured updated for what is now saved');
 const cat = path.join(repo, 'extension/skills/artspo/catalogue.py');
 execFileSync('python3', [cat, lib], { stdio: 'ignore' });
 const html = fs.readFileSync(path.join(lib, 'catalogue.html'), 'utf8');
-assert.match(html, /inbox\/2026-11-03_test_ab12\/assets\/svg\/01_logo-fieldnote-home\.svg/);
+assert.match(html, new RegExp(`inbox/2026-11-03_test_ab12/${star.file.replace(/[.]/g, '\\.')}`));
 const book = path.join(work, 'book');
 execFileSync('python3', [cat, lib, '--public', '--site', book, '--url', 'https://someone.github.io/book/'], { stdio: 'ignore' });
 const all = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? all(path.join(d, e.name)) : [path.join(d, e.name)]));
@@ -217,6 +217,21 @@ for (const f of shipped.filter((f) => /\.(html|md|json|txt)$/.test(f))) assert.d
 const sizes = new Set(shipped.map((f) => fs.statSync(f).size));
 assert.ok(!sizes.has(fs.statSync(path.join(work, 'site/hero.jpg')).size), 'no saved image bytes in the book');
 ok('catalogue lists the media; a public book has none of it');
+
+// curate: numbered sheets for an agent to look at, then set chosen tiles aside and fix clip.md
+const cur = path.join(repo, 'extension/skills/artspo/curate.py');
+const printed = execFileSync('python3', [cur, lib], { encoding: 'utf8' });
+assert.match(printed, /_curate\/sheet-01\.jpg/);
+const index = JSON.parse(fs.readFileSync(path.join(lib, '_curate/index.json'), 'utf8'));
+const pick = index.findIndex((r) => r.endsWith(img('/photo.jpg').file));
+execFileSync('python3', [cur, lib, '--drop', String(pick), '--why', 'people'], { encoding: 'utf8' });
+assert.ok(fs.existsSync(path.join(lib, '_set-aside/people', index[pick])) && !fs.existsSync(path.join(lib, index[pick])));
+const md2 = fs.readFileSync(path.join(dir, 'clip.md'), 'utf8');
+assert.ok(!md2.includes(img('/photo.jpg').file), 'its line and the poster mention left clip.md');
+assert.ok(fs.existsSync(path.join(lib, '_set-aside/clip-md-originals/inbox/2026-11-03_test_ab12/clip.md')));
+execFileSync('python3', [cat, lib], { stdio: 'ignore' });
+assert.doesNotMatch(fs.readFileSync(path.join(lib, 'catalogue.html'), 'utf8'), /_set-aside|_curate/);
+ok('curate.py: contact sheets, then set aside by tile number; clip.md and the catalogue follow');
 
 console.log(`\n${passed} checks passed`);
 fs.rmSync(work, { recursive: true, force: true });
