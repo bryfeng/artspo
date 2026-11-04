@@ -147,7 +147,8 @@ export function isWebPage(d) {
 
 export async function collectMedia(s, inv, net, { limits = LIMITS, fetchFn = fetch, pageUrl = '' } = {}) {
   const files = [];
-  const man = { svgs: [], images: [], videos: [], lottie: [], rive: [], icons: [], share: null, fonts: [], skipped: [], counts: inv?.counts };
+  const man = { svgs: [], images: [], videos: [], lottie: [], rive: [], icons: [], share: null, fonts: [], skipped: [], counts: inv?.counts,
+    left: { ui: 0, social: 0, partner: 0, chrome: 0, small: 0 }, logoWall: null };
   if (!inv || inv.error) { if (inv?.error) man.error = inv.error; return { files, manifest: man }; }
   let total = 0;
   const fits = (n, cap) => n <= cap && total + n <= limits.totalBytes;
@@ -191,12 +192,35 @@ export async function collectMedia(s, inv, net, { limits = LIMITS, fetchFn = fet
   };
   const WEB_PAGE = 'the address returned a web page, not the file';
 
+  // -- what's worth saving: the site's own logo and the main content's media. UI icons (arrows, chevrons, menus),
+  // other companies' marks, and the nav, footer and overlays are counted and described instead.
+  const leave = (x, svg) => {
+    if (x.role === 'logo') return null;
+    if (/social|brand/.test(x.role || '')) return 'social';
+    if (x.role === 'partner logo') return 'partner';
+    if (svg && x.role === 'icon') return !x.chrome && !x.control && Math.max(x.w, x.h) >= 32 ? null : 'ui';
+    if (!svg && x.placed && x.w && x.h && x.w <= 48 && x.h <= 48) return 'small';
+    if (x.chrome) return 'chrome';
+    return null;
+  };
+  const wall = [];
+  const leaveOut = (x, why) => { man.left[why] += x.n || 1; if (why === 'partner') wall.push(x); };
+
   // -- vector art: markup straight from the page
   // the site's logo, then larger art and partner logos, then its icons, then social and other brands' icons
   const order = (s) => (s.role === 'logo' ? 0 : s.role === 'icon' ? 2 : /social|brand/.test(s.role || '') ? 3 : 1);
   const svgs = [...(inv.svgs || [])].sort((a, b) => order(a) - order(b) || b.n - a.n || a.y - b.y);
   let i = 0;
+  let logos = 0;
   for (const v of svgs) {
+    const why = leave(v, true) || (v.role === 'logo' && logos >= 3 ? 'chrome' : null);
+    if (why) {
+      leaveOut(v, why);
+      const { markup, key, ...meta } = v;
+      if (man.svgs.length < 400) man.svgs.push({ ...meta, left: why }); // kept for the icon-system line
+      continue;
+    }
+    if (v.role === 'logo') logos++;
     if (i >= limits.svgs) { skip(`${svgs.length - i} more SVGs`, `over the ${limits.svgs}-file limit`); break; }
     if (!v.markup) { skip(`SVG ${v.w}×${v.h}${v.role ? ' (' + v.role + ')' : ''}`, 'markup over 200 KB'); continue; }
     const d = { text: '<?xml version="1.0" encoding="UTF-8"?>\n' + v.markup };
@@ -215,7 +239,7 @@ export async function collectMedia(s, inv, net, { limits = LIMITS, fetchFn = fet
     if (v.poster && !(inv.images || []).some((x) => x.url === v.poster)) cands.push({ url: v.poster, kind: 'poster', role: 'poster', w: v.w, h: v.h, placed: true });
   }
   for (const [url, rec] of net) {
-    if (rec.type === 'Image' && !(inv.images || []).some((x) => x.url === url) && (rec.size || 0) >= 2000) cands.push({ url, kind: 'loaded', role: null, placed: false });
+    if (rec.type === 'Image' && !(inv.images || []).some((x) => x.url === url) && (rec.size || 0) >= 20000) cands.push({ url, kind: 'loaded', role: null, placed: false });
   }
   const iconUrls = new Set((inv.icons || []).map((x) => x.url));
   const rank = (c) => (c.role === 'logo' ? 3 : c.role === 'hero' ? 2 : c.placed ? 1 : 0) * 1e9 + (c.w || 0) * (c.h || 0);
@@ -224,6 +248,8 @@ export async function collectMedia(s, inv, net, { limits = LIMITS, fetchFn = fet
   for (const c of cands) {
     if (seen.has(c.url) || iconUrls.has(c.url) || c.url === inv.share) continue;
     seen.add(c.url);
+    const why = leave(c, false);
+    if (why) { leaveOut(c, why); continue; }
     if (i >= limits.images) { skip(`${cands.length - i} more images`, `over the ${limits.images}-image limit`); break; }
     const d = await bodyOf(c.url, limits.imageBytes, { allowFetch: c.placed });
     if (!d) { if (c.placed) skip(c.url.startsWith('data:') ? 'an inline image' : c.url, 'not in the cache and could not be fetched'); continue; }
@@ -241,6 +267,7 @@ export async function collectMedia(s, inv, net, { limits = LIMITS, fetchFn = fet
   // -- video: whole files only, small ones; streamed or long videos get their facts and poster
   i = 0;
   for (const v of inv.videos || []) {
+    if (v.chrome || (v.w && v.h && v.w <= 48 && v.h <= 48)) { man.left.chrome += 1; continue; }
     const meta = { ...v, posterFile: man.images.find((x) => x.url === v.poster)?.file };
     delete meta.url;
     if (v.streamed || !v.url) { man.videos.push({ ...meta, notSaved: 'streamed in pieces (no single file to save)' }); continue; }
@@ -296,11 +323,22 @@ export async function collectMedia(s, inv, net, { limits = LIMITS, fetchFn = fet
     man.rive.push({ file, src: url, bytes: sizeOf(d) });
   }
 
-  // -- site icon (the biggest few) and share image
+  // -- the logo wall, described once: how many, at what size, in what treatment
+  if (wall.length) {
+    const top = (f) => { const c = {}; for (const x of wall) { const k = f(x); if (k != null && k !== '') c[k] = (c[k] || 0) + 1; } const e = Object.entries(c).sort((a, b) => b[1] - a[1])[0]; return e && e[1] >= wall.length / 2 ? e[0] : undefined; };
+    man.logoWall = {
+      n: wall.reduce((t, x) => t + (x.n || 1), 0),
+      size: top((x) => (x.w && x.h ? `${x.w}×${x.h}` : null)),
+      filter: top((x) => x.filter), opacity: top((x) => x.opacity), blend: top((x) => x.blend),
+      ink: top((x) => (x.colors?.length === 1 ? x.colors[0] : null)),
+    };
+  }
+
+  // -- site icon (the biggest one) and share image
   const icons = [...(inv.icons || [])].sort((a, b) => (parseInt(b.sizes) || (b.type === 'image/svg+xml' ? 999 : 0)) - (parseInt(a.sizes) || (a.type === 'image/svg+xml' ? 999 : 0)));
   i = 0;
   for (const ic of icons) {
-    if (i >= 3) break;
+    if (i >= 1) break; // the best one: the site's mark at its largest
     const d = await bodyOf(ic.url, 1e6);
     if (d?.notMedia) { skip(ic.url, WEB_PAGE); continue; }
     if (!d || d.tooBig || !fits(sizeOf(d), 1e6)) continue;

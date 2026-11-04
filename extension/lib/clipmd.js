@@ -620,11 +620,11 @@ export function mediaSection(m) {
     L.push(m.error ? `_Media wasn't read: ${m.error}_` : '_No images, vector art, video or animation files found on the page._', '');
     return L;
   }
-  L.push(`${saved} file${saved === 1 ? '' : 's'} in assets/ (${kb(m.bytes || 0)}): the page's own media, saved as reference. Study them; rebuild the style, don't reuse the files.`, '');
+  L.push(`${saved} file${saved === 1 ? '' : 's'} in assets/ (${kb(m.bytes || 0)}): the site's logo and its main content's media, saved as reference. Study them; rebuild the style, don't reuse the files.`, '');
   const svgs = (m.svgs || []).filter((s) => s.file);
-  if (svgs.length) {
-    L.push('**Vector art** (assets/svg/)');
-    const sys = iconSystem(svgs);
+  const sys = iconSystem(m.svgs);                       // measured over every icon, saved or not
+  if (svgs.length || sys) {
+    L.push('**Vector art**' + (svgs.length ? ' (assets/svg/)' : ''));
     if (sys) L.push(`- Icon system: ${sys}`);
     const rank = (s) => (s.role === 'logo' ? 0 : s.role === 'icon' ? 2 : /social|brand/.test(s.role || '') ? 3 : 1);
     const shown = [...svgs].sort((a, b) => rank(a) - rank(b)).slice(0, 16);
@@ -656,6 +656,15 @@ export function mediaSection(m) {
     if (m.share) parts.push(`share image \`${m.share.file}\`${m.share.w ? ` (${m.share.w}×${m.share.h})` : ''}`);
     L.push(`**Site icon and share image** — ${parts.join(', ')}`, '');
   }
+  const left = m.left || {}, wall = m.logoWall;
+  const out = [
+    left.ui && `${left.ui} UI icons (arrows, chevrons, menus: the icon-system line is their spec)`,
+    left.social && `${left.social} social and integration icons`,
+    left.partner && `${left.partner} partner logos${wall ? ` (logo wall${[wall.size && `, ${wall.size}`, wall.ink && `, one ink ${hex(wall.ink)}`, wall.filter && `, filter ${wall.filter}`, wall.opacity != null && `, opacity ${wall.opacity}`, wall.blend && `, ${wall.blend} blend`].filter(Boolean).join('')})` : ''}`,
+    left.chrome && `${left.chrome} more from the nav, footer and overlays`,
+    left.small && `${left.small} images 48px or smaller`,
+  ].filter(Boolean);
+  if (out.length) L.push(`**Left out on purpose** — ${out.join('; ')}.`, '');
   if ((m.fonts || []).length) {
     L.push(`**Webfont files** (not saved: fonts are licensed) — ${m.fonts.map((f) => `${f.n} ${f.format} (${f.source})`).join(', ')}`, '');
   }

@@ -18,7 +18,7 @@ Artspo is a Chrome extension that clips websites as design inspiration. The libr
 Your job is to keep that chain intact: every work traces to patterns, every pattern traces to clips.
 `catalogue.html` shows all of it on one page, with that lineage clickable.
 
-Skill version 0.9.2. The library's `AGENTS.md` ends with the version of the extension that wrote it. If that's newer
+Skill version 0.9.3. The library's `AGENTS.md` ends with the version of the extension that wrote it. If that's newer
 than this skill, tell the user once that their skill is out of date and how to update it:
 `curl -fsSL https://raw.githubusercontent.com/bryfeng/artspo/main/install.sh | sh`, then restart the agent.
 
@@ -40,7 +40,7 @@ artspo/
       full.jpg                      full page, 1440px wide
       filmstrip/NN.jpg              viewport frames top → bottom during an automated scroll
       assets/                       the page's own media, listed and measured under ## Media in clip.md:
-        svg/  img/  video/            vector art (icons, logo, illustrations), images, short videos
+        svg/  img/  video/            the logo, illustrations, feature icons, images, short videos
         lottie/  rive/  icon/         animation files, the site icon; share.<ext> is the social-share image
   patterns/
     INDEX.md                        every pattern, one line each; starred first
@@ -81,7 +81,7 @@ Older libraries may have `_generated/` instead of `works/`. The catalogue lists 
 | Motion: CSS animations/transitions, `element.animate`, GSAP lines | Exact durations, easings, staggers. |
 | Motion lines marked "JS-driven, sampled from inline styles" | Approximate: duration ±1 frame, easing unknown. |
 | Declared transitions | Hover/focus timings that were never triggered. The end state is unknown. |
-| Media | Files saved from what the page loaded, with how each was shown (size, fit, radius, filter). The icon-system line and Lottie easings are measured. Roles are inferred from size, placement and labels: `logo` is the site's own; `partner logo`, `social icon` and `brand icon` are other companies' marks (customers, investors, integrations), never part of the site's icon system. |
+| Media | Files saved from what the page loaded, with how each was shown (size, fit, radius, filter). The icon-system line and Lottie easings are measured. Roles are inferred from size, placement and labels: `logo` is the site's own; `partner logo`, `social icon` and `brand icon` are other companies' marks (customers, investors, integrations), never part of the site's icon system. Only the logo and main-content media are saved; UI icons, other brands' marks and the nav and footer are counted under "Left out on purpose", so use the icon-system and logo-wall lines for those. |
 | Not captured | Known gaps. Never fill these with guesses. |
 | Capture diagnostics | If it says THROTTLED, treat that clip's JS motion as unreliable. |
 
