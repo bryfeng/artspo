@@ -5,8 +5,56 @@
 const yamlStr = (s) => JSON.stringify(String(s ?? ''));
 const yamlList = (arr) => `[${(arr || []).map((t) => yamlStr(t)).join(', ')}]`;
 
+// Modern CSS color syntaxes (what getComputedStyle returns for oklch(), color-mix() and the like) -> sRGB
+const lin2srgb = (x) => { const v = Math.min(1, Math.max(0, x)); return 255 * (v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055); };
+const srgb2lin = (v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+const mul = (M, v) => M.map((row) => row[0] * v[0] + row[1] * v[1] + row[2] * v[2]);
+const XYZ65_SRGB = [[3.2409699419045226, -1.537383177570094, -0.4986107602930034], [-0.9692436362808796, 1.8759675015077202, 0.04155505740717559], [0.05563007969699366, -0.20397695888897652, 1.0569715142428786]];
+const D50_D65 = [[0.9554734527042182, -0.023098536874261423, 0.0632593086610217], [-0.028369706963208136, 1.0099954580058226, 0.021041398966943008], [0.012314001688319899, -0.020507696433477912, 1.3303659366080753]];
+const P3_XYZ65 = [[0.4865709486482162, 0.26566769316909306, 0.1982172852343625], [0.2289745640697488, 0.6917385218365064, 0.079286914093745], [0, 0.04511338185890264, 1.043944368900976]];
+const oklab2lin = (L, a, b) => {
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3, m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3, s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
+  return [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s, -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s];
+};
+const lab2lin = (L, a, b) => {
+  const fy = (L + 16) / 116, fx = fy + a / 500, fz = fy - b / 200, e = 216 / 24389, k = 24389 / 27;
+  const inv = (t) => (t ** 3 > e ? t ** 3 : (116 * t - 16) / k);
+  const xyz50 = [0.96422 * inv(fx), L > k * e ? fy ** 3 : L / k, 0.82521 * inv(fz)];
+  return mul(XYZ65_SRGB, mul(D50_D65, xyz50));
+};
+function parseModern(c) {
+  const m = String(c).match(/\b(oklab|oklch|lab|lch|color)\(\s*([^)]*)\)/i);
+  if (!m) return null;
+  let fn = m[1].toLowerCase(), body = m[2].trim(), space = '';
+  if (fn === 'color') { const sp = body.match(/^([a-z0-9-]+)\s+(.*)$/i); if (!sp) return null; space = sp[1].toLowerCase(); body = sp[2]; }
+  const [main, alpha] = body.split('/');
+  const num = (t, pct = 1) => (t == null || t === 'none' ? 0 : t.endsWith('%') ? (parseFloat(t) / 100) * pct : parseFloat(t));
+  const v = main.trim().split(/[\s,]+/);
+  const a = alpha == null ? 1 : num(alpha.trim(), 1);
+  let rgbLin;
+  if (fn === 'oklab') rgbLin = oklab2lin(num(v[0], 1), num(v[1], 0.4), num(v[2], 0.4));
+  else if (fn === 'oklch') { const h = (parseFloat(v[2]) || 0) * Math.PI / 180, C = num(v[1], 0.4); rgbLin = oklab2lin(num(v[0], 1), C * Math.cos(h), C * Math.sin(h)); }
+  else if (fn === 'lab') rgbLin = lab2lin(num(v[0], 100), num(v[1], 125), num(v[2], 125));
+  else if (fn === 'lch') { const h = (parseFloat(v[2]) || 0) * Math.PI / 180, C = num(v[1], 150); rgbLin = lab2lin(num(v[0], 100), C * Math.cos(h), C * Math.sin(h)); }
+  else if (space === 'srgb') rgbLin = v.slice(0, 3).map((x) => srgb2lin(num(x, 1)));
+  else if (space === 'srgb-linear') rgbLin = v.slice(0, 3).map((x) => num(x, 1));
+  else if (space === 'display-p3') rgbLin = mul(XYZ65_SRGB, mul(P3_XYZ65, v.slice(0, 3).map((x) => srgb2lin(num(x, 1)))));
+  else return null;
+  if (rgbLin.some((x) => !Number.isFinite(x))) return null;
+  const [r, g, b] = rgbLin.map((x) => Math.round(lin2srgb(x)));
+  return { r, g, b, a: Math.min(1, Math.max(0, a)) };
+}
+// rgb()/rgba() for any CSS color inside a CSS value (shadows, borders), so the value stays valid CSS
+export function cssColors(value) {
+  return String(value).replace(/\b(oklab|oklch|lab|lch|color)\([^)]*\)/gi, (c) => {
+    const p = parseModern(c);
+    return !p ? c : p.a < 1 ? `rgba(${p.r}, ${p.g}, ${p.b}, ${+p.a.toFixed(3)})` : `rgb(${p.r}, ${p.g}, ${p.b})`;
+  });
+}
+
 export function parseColor(c) {
   if (!c) return null;
+  if (/\b(oklab|oklch|lab|lch|color)\(/i.test(String(c)) && !/^\s*rgba?\(/i.test(String(c))) return parseModern(c);
   let m = String(c).match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+%?))?\s*\)/i);
   if (m) {
     let a = m[4] === undefined ? 1 : m[4].endsWith('%') ? parseFloat(m[4]) / 100 : parseFloat(m[4]);
@@ -376,9 +424,9 @@ export function buildClipMd(job, r, diag, files) {
   const rad = (r.shape?.radii || []).map((x) => `${x.value} (${x.n}× e.g. ${sig(x.ex[0])})`);
   push(`- Radii: ${rad.length ? rad.slice(0, 4).join('; ') : 'none — square corners'}`);
   const sh = r.shape?.shadows || [];
-  push(`- Shadows: ${sh.length ? sh.slice(0, 3).map((x) => `\`${x.value}\` (${x.n}×)`).join('; ') : 'none — depth comes from color/surface'}`);
+  push(`- Shadows: ${sh.length ? sh.slice(0, 3).map((x) => `\`${cssColors(x.value)}\` (${x.n}×)`).join('; ') : 'none — depth comes from color/surface'}`);
   const bd = r.shape?.borders || [];
-  if (bd.length) push(`- Borders: ${bd.slice(0, 3).map((x) => `${x.value.replace(/rgba?\([^)]+\)/, (c) => hex(c))} (${x.n}×)`).join('; ')}`);
+  if (bd.length) push(`- Borders: ${bd.slice(0, 3).map((x) => `${cssColors(x.value).replace(/rgba?\([^)]+\)/, (c) => hex(c))} (${x.n}×)`).join('; ')}`);
   const pxVals = [...(r.spacing?.sectionPadding || []), ...(r.spacing?.gaps || [])].flatMap((x) => Array(x.n).fill(parseFloat(x.value)));
   if (pxVals.length) {
     const by8 = pxVals.filter((v) => v % 8 === 0).length / pxVals.length;
@@ -523,6 +571,7 @@ function svgLine(s) {
   if (s.style) bits.push(s.style + (s.style !== 'solid' && s.strokeWidth ? ` ${s.strokeWidth}${s.cap && s.cap !== 'butt' ? ' ' + s.cap : ''}` : ''));
   if (s.colors?.length) bits.push(s.colors.map(hex).join(' '));
   if (s.n > 1) bits.push(`${s.n}× on the page`);
+  if (s.hidden) bits.push('hidden until hover or scroll on the page (saved visible)');
   return `- \`${s.file}\` — ${bits.filter(Boolean).join(', ')}${s.label ? ` — "${s.label}"` : ''}`;
 }
 
@@ -551,6 +600,7 @@ function videoLine(v) {
   if (v.w) bits.push(`shown ${v.w}×${v.h}`);
   if (v.fit) bits.push(`object-fit ${v.fit}`);
   if (v.radius) bits.push(`radius ${v.radius}`);
+  if (v.n > 1) bits.push(`${v.n}× on the page`);
   if (v.posterFile) bits.push(`poster \`${v.posterFile}\``);
   if (v.file) return `- \`${v.file}\` — ${bits.join(', ')}, ${kb(v.bytes)}`;
   return `- not saved (${v.notSaved}) — ${bits.join(', ')}${v.src ? `: ${v.src}` : ''}`;
@@ -576,7 +626,8 @@ export function mediaSection(m) {
     L.push('**Vector art** (assets/svg/)');
     const sys = iconSystem(svgs);
     if (sys) L.push(`- Icon system: ${sys}`);
-    const shown = [...svgs.filter((s) => s.role !== 'icon'), ...svgs.filter((s) => s.role === 'icon')].slice(0, 16);
+    const rank = (s) => (s.role === 'logo' ? 0 : s.role === 'icon' ? 2 : /social|brand/.test(s.role || '') ? 3 : 1);
+    const shown = [...svgs].sort((a, b) => rank(a) - rank(b)).slice(0, 16);
     for (const s of shown) L.push(svgLine(s));
     if (svgs.length > shown.length) L.push(`- …and ${svgs.length - shown.length} more in assets/svg/`);
     L.push('');

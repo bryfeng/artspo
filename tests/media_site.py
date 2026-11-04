@@ -24,6 +24,13 @@ tx = Image.new("RGB", (40, 40), (251, 250, 247)); ImageDraw.Draw(tx).line([(0, 4
 for n, s in (("favicon.png", 32), ("apple-touch-icon.png", 180)):
     ic = Image.new("RGB", (s, s), (23, 22, 26)); ImageDraw.Draw(ic).rounded_rectangle([s * .2, s * .2, s * .8, s * .8], radius=s * .15, fill=(255, 107, 74)); ic.save(site / n)
 Image.new("RGB", (1, 1), (255, 255, 255)).save(site / "pixel.gif")
+# what real sites do wrong: an address that answers with the site's HTML page instead of the file
+page_shell = "<!DOCTYPE html><html lang=en><head><meta charset=utf-8><title>Not found</title></head><body>app</body></html>"
+(site / "fake.mp4").write_text(page_shell)
+(site / "app-icon.png").write_text(page_shell)
+logo_svg = lambda name, fill: f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 148 52"><rect x="10" y="16" width="128" height="20" rx="4" fill="{fill}"/></svg>'
+(site / "acme-logo.svg").write_text(logo_svg("Acme", "#555"))
+(site / "pancake.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 71 71"><circle cx="35.5" cy="35.5" r="35" fill="#d1884f"/></svg>')
 
 subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=320x180:rate=24", "-t", "2",
                 "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(site / "loop.mp4")], check=True)
@@ -57,7 +64,7 @@ data_svg = "data:image/svg+xml;utf8," + "%3Csvg xmlns='http://www.w3.org/2000/sv
 <title>Fieldnote · Quiet tools for careful work</title>
 <meta name="description" content="A demo site for Artspo's media capture.">
 <meta property="og:image" content="/share.jpg">
-<link rel="icon" href="/favicon.png" sizes="32x32"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" href="/favicon.png" sizes="32x32"><link rel="icon" href="/app-icon.png" sizes="192x192"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preload" as="image" href="/hover.png">
 <style>
 @font-face {{ font-family: Brand; src: url(/brand.ttf); }}
@@ -70,6 +77,8 @@ h1 {{ font: 500 72px/1 Brand; margin: 0 48px 24px; }}
 .avatar {{ width: 64px; height: 64px; border-radius: 50%; }}
 video {{ width: 640px; border-radius: 16px; }}
 section {{ padding: 48px; }}
+.inked path {{ fill: #4b4036; }}
+.trusted {{ display: flex; gap: 40px; align-items: center; }}
 </style></head><body>
 <header>
   <a href="/" aria-label="Fieldnote home"><svg width="120" height="28" viewBox="0 0 120 28"><rect width="28" height="28" rx="7" fill="#17161a"/><circle cx="14" cy="14" r="6" fill="#ff6b4a"/><text x="38" y="20" font-size="16" fill="#17161a">fieldnote</text></svg></a>
@@ -90,9 +99,26 @@ section {{ padding: 48px; }}
   <video src="/loop.mp4" autoplay loop muted playsinline poster="/photo.jpg"></video>
   <video src="/stream.mp4" muted playsinline preload="auto"></video>
 </section>
+<section style="display:flex;gap:32px;align-items:center">
+  <video src="/loop.mp4" muted playsinline style="width:200px"></video>
+  <video src="/fake.mp4" autoplay muted playsinline style="width:200px"></video>
+  <video muted playsinline poster="/photo.jpg" style="width:200px"></video>
+  <a href="/start" class="cta">Start <svg class="arrow-hover" style="opacity:0" width="56" height="56" viewBox="0 0 26 26"><circle cx="13" cy="13" r="12" fill="#ffebaa"/></svg></a>
+  <svg width="200" height="120" viewBox="0 0 200 120"><rect width="200" height="120" style="fill: oklch(0.627955 0.257683 29.2339)"/></svg>
+</section>
+<section class="trusted" aria-label="Trusted by">
+  <svg width="150" height="36" viewBox="0 0 150 36" aria-label="Northwind"><path d="M0 8h150v20H0z" fill="#8a8a8a"/></svg>
+  <svg width="140" height="34" viewBox="0 0 140 34" aria-label="Contoso"><path d="M0 8h140v18H0z" fill="#8a8a8a"/></svg>
+  <img src="/acme-logo.svg" alt="Acme Logo" width="148" height="52">
+  <img src="/pancake.svg" alt="" width="70" height="70" style="border-radius:50%">
+</section>
 <section><lottie-player src="/anim.json" style="display:block;width:200px;height:200px"></lottie-player></section>
 <div style="height:1800px"></div>
 <section><img src="/lazy.webp" loading="lazy" width="900" height="600" alt="Below the fold"></section>
+<footer style="display:flex;gap:24px;align-items:center;padding:48px">
+  <a href="/"><svg class="inked" width="160" height="40" viewBox="0 0 160 40" aria-label="Fieldnote"><style>.c {{ fill: #1b1b1b; }}</style><path class="c" d="M0 4h160v32H0z"/></svg></a>
+  <a href="https://github.com/fieldnote" aria-label="GitHub"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-3 19.5"/></svg></a>
+</footer>
 <script>
 fetch('/anim.json'); fetch('/api.json'); fetch('/orb.riv'); fetch('/badge.lottie');
 </script>

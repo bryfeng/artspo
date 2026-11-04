@@ -23,8 +23,8 @@ network cache, so nothing is downloaded twice.
 
 | Kind | Saved as | Measured |
 |---|---|---|
-| Inline SVG (icons, logo, illustrations) | `assets/svg/NN_<role>.svg`, with the page's CSS paint (fill, stroke, width, caps) written into the file so it looks the same on its own; sprite icons (`<use href="#…">`) are drawn in full | role, size, viewBox, line or solid, stroke width, caps and joins, colors; the icon set is summarized as one line (grid, stroke, caps, ink) |
-| Images (`<img>`, CSS backgrounds, video posters, images loaded but not placed) | `assets/img/NN_<name>.<ext>` in the original format | role (logo, hero, avatar, icon, background), shown size and file size, object-fit, radius, filter, blend, mask, tiling, alt text |
+| Inline SVG (icons, logo, illustrations) | `assets/svg/NN_<role>.svg`, with the page's CSS paint (fill, stroke, width, caps) written into each element as inline style, in sRGB, so it looks the same on its own (a `<style>` block inside the SVG can't override it); sprite icons (`<use href="#…">`) are drawn in full; art that only appears on hover is saved visible and marked | role, size, viewBox, line or solid, stroke width, caps and joins, colors; the icon set is summarized as one line (grid, stroke, caps, ink) |
+| Images (`<img>`, CSS backgrounds, video posters, images loaded but not placed) | `assets/img/NN_<name>.<ext>` in the original format | role (logo, partner logo, hero, avatar, icon, social icon, background), shown size and file size, object-fit, radius, filter, blend, mask, tiling, alt text |
 | Video | `assets/video/NN_<name>.<ext>`, when it's one file under 15 MB | autoplay, loop, muted, duration, file and shown size, poster |
 | Lottie (`.json`, `.lottie`) | `assets/lottie/` | frame rate, length, size, layers, keyframes and their easing curves, markers |
 | Rive | `assets/rive/` | size only; state machines aren't parsed |
@@ -33,7 +33,9 @@ network cache, so nothing is downloaded twice.
 
 Limits per clip: 60 SVGs, 80 images (8 MB each), 4 videos (15 MB each), 8 Lottie files, 60 MB in all. What goes
 over is listed under **Not saved**. Video streamed in pieces (most long or adaptive video) has no single file
-to save; its facts and poster are still recorded. A file Chrome's cache no longer has is fetched again, and the
+to save; its facts and poster are still recorded. An address that answers with a web page instead of the file
+(a 404 page or an app shell, common for video with no source yet and for stale icon links) is never saved; it's
+listed as not saved. A file Chrome's cache no longer has is fetched again, and the
 share image is always fetched, since pages don't load it themselves.
 
 ### Throttling check

@@ -264,16 +264,42 @@
 
   function media() {
     const top0 = scrollY;
+    const fileName = (u) => { const f = u.split(/[?#]/)[0].split('/').pop() || ''; try { return decodeURIComponent(f); } catch { return f; } };
     const abs = (u) => { try { return new URL(u, location.href).href; } catch { return ''; } };
     const hayOf = (el, extra = '') => [el.id, el.getAttribute('class'), el.getAttribute('aria-label'), el.getAttribute('alt'), el.getAttribute('title'), extra].join(' ');
     const home = (el) => el.closest(`a[href="/"],a[href="./"],a[href="${location.origin}"],a[href="${location.origin}/"]`);
-    const roleOf = (el, r, extra = '') => {
-      const y = r.top + top0;
+    // where the element sits on the page: fixed and sticky headers stay at the top however far the page scrolled
+    const pinned = (el) => { for (let e = el, k = 0; e && k < 14; e = e.parentElement, k++) { const p = getComputedStyle(e).position; if (p === 'fixed' || p === 'sticky') return true; } return false; };
+    const yOf = (el, r) => (pinned(el) ? r.top : r.top + top0);
+    // the site's own name, to tell its logo from the partner, customer and social logos around it
+    const siteNames = (() => {
+      const host = location.hostname.replace(/^www\./, '').split('.');
+      const names = [host.length > 1 ? host[host.length - 2] : host[0]];
+      const og = document.querySelector('meta[property="og:site_name"]')?.content;
+      const t = (document.title || '').split(/\s[|\-–—:·]\s/)[0];
+      for (const n of [og, t]) if (n && n.length <= 32) names.push(n);
+      return names.map((n) => n.toLowerCase().replace(/[^a-z0-9]+/g, '')).filter((n) => n.length >= 3);
+    })();
+    const ownName = (text) => { const t = String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, ''); return !!t && siteNames.some((n) => t.includes(n) || (t.length >= 4 && n.length <= 24 && n.startsWith(t))); };
+    const SOCIAL = /(^|[\s_\-/])(github|discord|twitter|linkedin|youtube|instagram|facebook|telegram|tiktok|threads|bluesky|mastodon|reddit|medium|substack|farcaster|warpcast|slack|dribbble|behance|huggingface|hugging-face)([\s_\-.]|$)/i;
+    const LOGOWORD = /(^|[\s_-])(logo|brand|wordmark|logotype)/i;
+    // shape: { wide } marks a short, wide, one- or two-color drawing, the usual shape of a wordmark
+    const roleOf = (el, r, extra = '', shape = {}) => {
+      if (r.width * r.height < 4) return null;                            // not laid out: nothing to say about its role
+      const y = yOf(el, r);
       const side = Math.max(r.width, r.height);
-      if (/(^|[\s_-])(logo|brand|wordmark|logotype)/i.test(hayOf(el, extra)) || (home(el) && y < 240 && side > 24)) return 'logo';
+      const hay = hayOf(el, extra);
+      const label = shape.label || el.getAttribute('alt') || el.getAttribute('aria-label') || '';
+      if (SOCIAL.test(hay) || SOCIAL.test(' ' + label + ' ') || /^(x|𝕏)$/i.test(label.trim())) return 'social icon';
+      const logoish = LOGOWORD.test(hay) || shape.wide;
+      const homeLink = home(el) && side > 12 && r.height <= 160;
+      const top = y < 240 || !!el.closest('header,nav,[role="banner"]');
+      if (homeLink || (logoish && (ownName(label) || ownName(hay) || (top && !label)))) return side <= 24 && !homeLink ? 'icon' : 'logo';
+      if (logoish) return side <= 48 ? 'brand icon' : 'partner logo';
       if (side <= 48) return 'icon';
       const round = parseFloat(getComputedStyle(el).borderTopLeftRadius) >= Math.min(r.width, r.height) / 3;
-      if (/avatar|author|profile|headshot/i.test(hayOf(el, extra)) || (side <= 128 && Math.abs(r.width - r.height) < 6 && round)) return 'avatar';
+      const photo = el.tagName === 'IMG' && !/\.svg(\?|#|$)/i.test(extra);
+      if (/avatar|author|profile|headshot/i.test(hay) || (photo && side <= 128 && Math.abs(r.width - r.height) < 6 && round)) return 'avatar';
       if (y < innerHeight && r.width * r.height > innerWidth * innerHeight * 0.18) return 'hero';
       return null;
     };
@@ -298,6 +324,15 @@
       const t = own || host?.getAttribute('aria-label') || host?.getAttribute('title') || (host?.textContent || '').trim();
       return t && t.trim().length <= 32 ? t.trim() : undefined;
     };
+    const cv = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+    const rgbOf = (v) => {
+      if (!v || /^(rgba?\(|#|none|url|transparent|currentcolor|context-)/i.test(v) || !/^[a-z-]+\(/i.test(v)) return v;
+      try {
+        cv.clearRect(0, 0, 1, 1); cv.fillStyle = '#000'; cv.fillStyle = v; cv.fillRect(0, 0, 1, 1);
+        const [r, g, b, a] = cv.getImageData(0, 0, 1, 1).data;
+        return a === 255 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${+(a / 255).toFixed(2)})`;
+      } catch { return v; }
+    };
     const urlRef = (v) => v.replace(/url\(["']?[^#"')]*#([^"')]+)["']?\)/g, 'url(#$1)');
     const mode = (arr) => { const c = {}; let best, n = 0; for (const v of arr) if (v != null) { c[v] = (c[v] || 0) + 1; if (c[v] > n) { n = c[v]; best = v; } } return best; };
     const hash = (s) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + s.length.toString(36); };
@@ -313,19 +348,25 @@
       const clone = svg.cloneNode(true);
       const src = [svg, ...svg.querySelectorAll('*')], dst = [clone, ...clone.querySelectorAll('*')];
       const strokes = [], caps = [], joins = [], colors = new Set();
-      let line = 0, solid = 0, shapes = 0;
+      let line = 0, solid = 0, shapes = 0, hidden = false;
       src.forEach((el, i) => {
         if (i > 1500) return; // a huge illustration: paint the first 1,500 elements, keep the rest as drawn in the markup
         const tag = el.tagName.toLowerCase();
         if (i && !SHAPE.test(tag) && tag !== 'g') return;
         const s = getComputedStyle(el);
-        for (const p of PAINT) { const v = s.getPropertyValue(p); if (v) dst[i].setAttribute(p, urlRef(v)); }
+        for (const p of PAINT) {
+          let v = s.getPropertyValue(p);
+          if (!v) continue;
+          if (p === 'fill' || p === 'stroke') v = rgbOf(v);
+          if (!i && p === 'opacity' && +v === 0) { hidden = true; v = '1'; } // shown on hover or scroll: save it visible
+          dst[i].style.setProperty(p, urlRef(v));
+        }
         if (!SHAPE.test(tag)) return;
         shapes++;
         const stroked = s.stroke !== 'none' && parseFloat(s.strokeWidth) > 0;
         const filled = s.fill !== 'none' && parseFloat(s.fillOpacity) > 0;
-        if (stroked) { strokes.push(s.strokeWidth); caps.push(s.strokeLinecap); joins.push(s.strokeLinejoin); if (!s.stroke.startsWith('url')) colors.add(s.stroke); }
-        if (filled && !s.fill.startsWith('url')) colors.add(s.fill);
+        if (stroked) { strokes.push(s.strokeWidth); caps.push(s.strokeLinecap); joins.push(s.strokeLinejoin); if (!s.stroke.startsWith('url')) colors.add(rgbOf(s.stroke)); }
+        if (filled && !s.fill.startsWith('url')) colors.add(rgbOf(s.fill));
         if (stroked && !filled) line++; else if (filled && !stroked) solid++;
       });
       // sprite icons (<use href="#icon">): draw the referenced symbol in place, so the file stands alone
@@ -353,8 +394,11 @@
       if (markup.length > 200000 || markup.length > markupBudget) markup = '';
       markupBudget -= markup.length;
       svgs.set(key, {
-        key, markup, w: Math.round(r.width), h: Math.round(r.height), y: Math.round(r.top + top0),
-        viewBox: clone.getAttribute('viewBox') || undefined, role: roleOf(svg, r) || (Math.max(r.width, r.height) > 120 ? 'illustration' : 'graphic'),
+        key, markup, w: Math.round(r.width), h: Math.round(r.height), y: Math.round(yOf(svg, r)),
+        viewBox: clone.getAttribute('viewBox') || undefined,
+        role: roleOf(svg, r, '', { label: labelOf(svg), wide: r.width / r.height >= 2.2 && r.height <= 100 && r.width <= 520 && solid > 0 && !line && colors.size <= 2 })
+          || (Math.max(r.width, r.height) > 120 ? 'illustration' : 'graphic'),
+        hidden: hidden || undefined,
         style: line && !solid ? 'line' : solid && !line ? 'solid' : shapes ? 'mixed' : undefined,
         strokeWidth: mode(strokes), cap: mode(caps), join: mode(joins), colors: [...colors].slice(0, 4), shapes, n: 1,
         label: labelOf(svg),
@@ -370,7 +414,7 @@
       if (hit) { hit.n++; continue; }
       const alt = el.tagName === 'IMG' ? (el.getAttribute('alt') || '').trim().slice(0, 80) : '';
       images.set(url, {
-        url, kind, role: roleOf(el, r, url.startsWith('data:') ? '' : url) || (kind === 'background' ? 'background' : null),
+        url, kind, role: roleOf(el, r, url.startsWith('data:') ? '' : fileName(url)) || (kind === 'background' ? 'background' : null),
         w: Math.round(r.width), h: Math.round(r.height), y: Math.round(r.top + top0),
         nw: el.naturalWidth || undefined, nh: el.naturalHeight || undefined, alt: alt || undefined,
         repeat: kind === 'background' && cs.backgroundRepeat !== 'no-repeat' && !/cover|contain/.test(cs.backgroundSize) ? cs.backgroundRepeat : undefined,
@@ -383,8 +427,12 @@
     for (const v of document.querySelectorAll('video')) {
       const r = v.getBoundingClientRect();
       const src = v.currentSrc || v.src || v.querySelector('source')?.src || '';
+      const url = src.startsWith('blob:') ? '' : abs(src);
+      if (url && url.split('#')[0] === location.href.split('#')[0]) continue;      // no source yet: resolves to the page itself
+      const twin = url && videos.find((x) => x.url === url);
+      if (twin) { twin.n = (twin.n || 1) + 1; continue; }
       videos.push({
-        url: src.startsWith('blob:') ? '' : abs(src), streamed: src.startsWith('blob:') || undefined, poster: v.poster ? abs(v.poster) : undefined,
+        url, streamed: src.startsWith('blob:') || undefined, poster: v.poster ? abs(v.poster) : undefined,
         w: Math.round(r.width), h: Math.round(r.height), y: Math.round(r.top + top0), vw: v.videoWidth || undefined, vh: v.videoHeight || undefined,
         duration: Number.isFinite(v.duration) ? +v.duration.toFixed(1) : undefined, loop: v.loop || undefined, autoplay: v.autoplay || undefined,
         muted: v.muted || undefined, playing: !v.paused || undefined, role: roleOf(v, r), ...treatment(getComputedStyle(v), v),

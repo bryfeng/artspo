@@ -136,6 +136,15 @@ async function imageSize(d) {
 // ---------------------------------------------------------------- collecting
 // s: the inspector's DevTools session; inv: extract.js's media inventory; net: Map url → response record
 // Returns { files: [{ path: 'assets/…', base64|text, mime }], manifest }.
+// A server that answers a media address with its HTML page (a 404 page, an app shell, a video with no source yet)
+export function isWebPage(d) {
+  if (/text\/html|application\/xhtml/i.test(d.mime || '')) return true;
+  let head = '';
+  if (d.text != null) head = d.text.slice(0, 256);
+  else if (d.base64) { try { head = new TextDecoder().decode(b64ToBytes(d.base64.slice(0, 344))); } catch {} }
+  return /^\uFEFF?\s*<(!doctype\s+html|html[\s>]|head[\s>]|body[\s>])/i.test(head);
+}
+
 export async function collectMedia(s, inv, net, { limits = LIMITS, fetchFn = fetch, pageUrl = '' } = {}) {
   const files = [];
   const man = { svgs: [], images: [], videos: [], lottie: [], rive: [], icons: [], share: null, fonts: [], skipped: [], counts: inv?.counts };
@@ -166,7 +175,11 @@ export async function collectMedia(s, inv, net, { limits = LIMITS, fetchFn = fet
       return { base64: bytesToB64(buf), mime };
     } catch { return null; }
   };
-  const bodyOf = async (url, maxBytes, { asText = false, allowFetch = true } = {}) => {
+  const bodyOf = async (url, maxBytes, opts = {}) => {
+    const d = await rawBody(url, maxBytes, opts);
+    return d && !d.tooBig && isWebPage(d) ? { notMedia: true } : d;
+  };
+  const rawBody = async (url, maxBytes, { asText = false, allowFetch = true } = {}) => {
     if (url.startsWith('data:')) return dataUri(url);
     const rec = net.get(url);
     let d = await cacheBody(rec);
@@ -176,9 +189,11 @@ export async function collectMedia(s, inv, net, { limits = LIMITS, fetchFn = fet
     }
     return allowFetch ? fetchBody(url, maxBytes, asText) : null;
   };
+  const WEB_PAGE = 'the address returned a web page, not the file';
 
   // -- vector art: markup straight from the page
-  const order = (s) => (s.role === 'logo' ? 0 : s.role === 'icon' ? 2 : 1); // logos, then larger art, then icons
+  // the site's logo, then larger art and partner logos, then its icons, then social and other brands' icons
+  const order = (s) => (s.role === 'logo' ? 0 : s.role === 'icon' ? 2 : /social|brand/.test(s.role || '') ? 3 : 1);
   const svgs = [...(inv.svgs || [])].sort((a, b) => order(a) - order(b) || b.n - a.n || a.y - b.y);
   let i = 0;
   for (const v of svgs) {
@@ -212,6 +227,7 @@ export async function collectMedia(s, inv, net, { limits = LIMITS, fetchFn = fet
     if (i >= limits.images) { skip(`${cands.length - i} more images`, `over the ${limits.images}-image limit`); break; }
     const d = await bodyOf(c.url, limits.imageBytes, { allowFetch: c.placed });
     if (!d) { if (c.placed) skip(c.url.startsWith('data:') ? 'an inline image' : c.url, 'not in the cache and could not be fetched'); continue; }
+    if (d.notMedia) { if (c.placed) skip(c.url, WEB_PAGE); continue; }
     if (d.tooBig || !fits(sizeOf(d), limits.imageBytes)) { skip(c.url, `over ${Math.round(limits.imageBytes / 1e6)} MB`); continue; }
     const ext = extOf(d.mime, c.url);
     if (ext === 'bin' || ext === 'json') continue;
@@ -233,6 +249,7 @@ export async function collectMedia(s, inv, net, { limits = LIMITS, fetchFn = fet
     const known = rec?.total || rec?.length || 0;
     if (known > limits.videoBytes) { man.videos.push({ ...meta, src: v.url, notSaved: `${Math.round(known / 1e6)} MB, over the ${Math.round(limits.videoBytes / 1e6)} MB limit` }); continue; }
     const d = await bodyOf(v.url, limits.videoBytes);
+    if (d?.notMedia) { man.videos.push({ ...meta, src: v.url, notSaved: WEB_PAGE }); continue; }
     if (!d || d.tooBig || !fits(sizeOf(d), limits.videoBytes)) {
       man.videos.push({ ...meta, src: v.url, notSaved: d?.tooBig ? `over the ${Math.round(limits.videoBytes / 1e6)} MB limit` : 'could not be read' });
       continue;
@@ -272,6 +289,7 @@ export async function collectMedia(s, inv, net, { limits = LIMITS, fetchFn = fet
   for (const [url, rec] of net) {
     if (!/\.riv(\?|$)/i.test(url) || i >= limits.rive) continue;
     const d = await bodyOf(url, limits.riveBytes, { allowFetch: false });
+    if (d?.notMedia) { skip(url, WEB_PAGE); continue; }
     if (!d || d.tooBig || !fits(sizeOf(d), limits.riveBytes)) { skip(url, 'Rive file could not be read'); continue; }
     const file = `assets/rive/${pad(++i)}_${nameOf(url)}.riv`;
     put(file, d.text != null ? { base64: bytesToB64(new TextEncoder().encode(d.text)) } : d, 'application/octet-stream');
@@ -284,6 +302,7 @@ export async function collectMedia(s, inv, net, { limits = LIMITS, fetchFn = fet
   for (const ic of icons) {
     if (i >= 3) break;
     const d = await bodyOf(ic.url, 1e6);
+    if (d?.notMedia) { skip(ic.url, WEB_PAGE); continue; }
     if (!d || d.tooBig || !fits(sizeOf(d), 1e6)) continue;
     const ext = extOf(d.mime || ic.type, ic.url);
     if (ext === 'bin') continue;
@@ -294,7 +313,8 @@ export async function collectMedia(s, inv, net, { limits = LIMITS, fetchFn = fet
   }
   if (inv.share) {
     const d = await bodyOf(inv.share, 4e6);
-    if (d && !d.tooBig && fits(sizeOf(d), 4e6)) {
+    if (d?.notMedia) skip(inv.share, WEB_PAGE);
+    if (d && !d.notMedia && !d.tooBig && fits(sizeOf(d), 4e6)) {
       const ext = extOf(d.mime, inv.share);
       if (ext !== 'bin') {
         const file = `assets/share.${ext}`;
