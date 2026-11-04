@@ -398,6 +398,8 @@ export function buildClipMd(job, r, diag, files) {
     push('');
   }
 
+  push(...mediaSection(r.assets));
+
   // Motion
   push('## Motion');
   push(`**Libraries:** ${(r.libs || []).length ? r.libs.join(', ') : 'none detected (plain CSS/JS)'}`, '');
@@ -450,8 +452,12 @@ export function buildClipMd(job, r, diag, files) {
   const sig2 = r.signals || {};
   const webgl = (r.libs || []).some((l) => /WebGL|Three|Spline/.test(l));
   if (webgl) gaps.push('WebGL scene internals (shaders, 3D motion) — canvas detected, contents opaque');
-  if (sig2.autoplayVideo) gaps.push(`${sig2.autoplayVideo} autoplay video(s) — motion is baked into video, not code`);
-  if ((r.libs || []).some((l) => /Lottie|Rive/.test(l))) gaps.push('Lottie/Rive animation internals — the animation files were not parsed');
+  const am = r.assets || {};
+  const savedVideos = (am.videos || []).filter((v) => v.file).length;
+  if (sig2.autoplayVideo) gaps.push(`${sig2.autoplayVideo} autoplay video(s) — motion is baked into video, not code${savedVideos ? ` (${savedVideos} saved in assets/video/ to watch)` : ''}`);
+  if ((r.libs || []).some((l) => /Lottie/.test(l)) && !(am.lottie || []).length) gaps.push('Lottie animation files — Lottie is on the page, but its animation file wasn’t among what the page loaded');
+  if ((am.rive || []).length) gaps.push('Rive state machines — the .riv file is saved in assets/rive/ but not parsed');
+  else if ((r.libs || []).some((l) => /Rive/.test(l))) gaps.push('Rive animation internals — no .riv file was found among what the page loaded');
   if ((r.libs || []).some((l) => /GSAP/.test(l)) && !(r.motion?.gsap || []).length) gaps.push('GSAP is bundled privately — exact tween values were not reachable; JS-driven motion above is sampled from inline styles (approximate durations, no easing). Good candidate for a REA deep dive.');
   if (sig2.cursorFollow) gaps.push('Cursor-follow effects (cursor element detected) — capture does not move the mouse');
   if (sig2.iframes) gaps.push(`${sig2.iframes} iframe(s) not inspected`);
@@ -486,6 +492,126 @@ export function buildClipMd(job, r, diag, files) {
   for (const f of files) push(`- ${f}`);
   push('');
   return L.join('\n');
+}
+
+// ---------------- media ----------------
+const kb = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1e3))} KB`);
+const dims = (w, h) => (w && h ? `${w}×${h}` : '');
+
+// One line that names the icon system: "14 line icons on a 24×24 grid, stroke 1.5px, round caps and joins, #17161A"
+export function iconSystem(svgs) {
+  const icons = (svgs || []).filter((s) => s.role === 'icon');
+  if (icons.length < 3) return null;
+  const top = (k) => { const c = {}; for (const s of icons) if (s[k] != null) c[s[k]] = (c[s[k]] || 0) + (s.n || 1); return Object.entries(c).sort((a, b) => b[1] - a[1])[0]?.[0]; };
+  const style = top('style');
+  const grid = top('viewBox')?.match(/^0 0 ([\d.]+) ([\d.]+)$/);
+  const total = icons.reduce((s, x) => s + (x.n || 1), 0);
+  const colors = {};
+  for (const s of icons) for (const c of s.colors || []) colors[hex(c)] = (colors[hex(c)] || 0) + (s.n || 1);
+  const ink = Object.entries(colors).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([c]) => c);
+  const parts = [`${icons.length} ${style === 'line' ? 'line' : style === 'solid' ? 'solid' : 'mixed'} icons${total > icons.length ? ` (${total} on the page)` : ''}`];
+  if (grid) parts[0] += ` on a ${+grid[1]}×${+grid[2]} grid`;
+  if (style !== 'solid' && top('strokeWidth')) parts.push(`stroke ${top('strokeWidth')}`);
+  const cap = top('cap'), join = top('join');
+  if (style !== 'solid' && cap && cap !== 'butt') parts.push(cap === join ? `${cap} caps and joins` : `${cap} caps${join && join !== 'miter' ? `, ${join} joins` : ''}`);
+  if (ink.length) parts.push(ink.join(', '));
+  return parts.join(', ');
+}
+
+function svgLine(s) {
+  const bits = [s.role || 'vector art', dims(s.w, s.h) + (s.viewBox ? ` (viewBox ${s.viewBox})` : '')];
+  if (s.style) bits.push(s.style + (s.style !== 'solid' && s.strokeWidth ? ` ${s.strokeWidth}${s.cap && s.cap !== 'butt' ? ' ' + s.cap : ''}` : ''));
+  if (s.colors?.length) bits.push(s.colors.map(hex).join(' '));
+  if (s.n > 1) bits.push(`${s.n}× on the page`);
+  return `- \`${s.file}\` — ${bits.filter(Boolean).join(', ')}${s.label ? ` — "${s.label}"` : ''}`;
+}
+
+function imageLine(m) {
+  const shown = dims(m.w, m.h), file = dims(m.fileW, m.fileH);
+  const bits = [m.role || (m.kind === 'loaded' ? 'loaded, not placed on the page' : 'image')];
+  if (shown && m.kind !== 'loaded') bits.push(`shown ${shown}${file && file !== shown ? ` (file ${file})` : ''}`);
+  else if (file) bits.push(file);
+  if (m.kind === 'background') bits.push(m.repeat ? `CSS background, tiled (${m.repeat})` : 'CSS background');
+  if (m.fit) bits.push(`object-fit ${m.fit}`);
+  if (m.radius) bits.push(`radius ${m.radius}`);
+  if (m.filter) bits.push(`filter ${m.filter}`);
+  if (m.blend) bits.push(`${m.blend} blend`);
+  if (m.mask) bits.push('masked');
+  if (m.opacity != null) bits.push(`opacity ${m.opacity}`);
+  if (m.n > 1) bits.push(`${m.n}× on the page`);
+  bits.push(`${m.format}, ${kb(m.bytes)}`);
+  return `- \`${m.file}\` — ${bits.join(', ')}${m.alt ? ` — alt "${m.alt}"` : ''}`;
+}
+
+function videoLine(v) {
+  const how = [v.autoplay && 'autoplay', v.loop && 'loop', v.muted && 'muted'].filter(Boolean).join(', ') || 'plays on request';
+  const bits = [v.role || 'video', how];
+  if (v.duration) bits.push(`${v.duration}s`);
+  if (v.vw) bits.push(`${v.vw}×${v.vh} file`);
+  if (v.w) bits.push(`shown ${v.w}×${v.h}`);
+  if (v.fit) bits.push(`object-fit ${v.fit}`);
+  if (v.radius) bits.push(`radius ${v.radius}`);
+  if (v.posterFile) bits.push(`poster \`${v.posterFile}\``);
+  if (v.file) return `- \`${v.file}\` — ${bits.join(', ')}, ${kb(v.bytes)}`;
+  return `- not saved (${v.notSaved}) — ${bits.join(', ')}${v.src ? `: ${v.src}` : ''}`;
+}
+
+function lottieLine(l) {
+  const bits = [`${l.fps} fps, ${l.seconds}s (${l.frames} frames)`, dims(l.w, l.h), `${l.layers} layers`, `${l.keyframes} keyframes${l.holds ? ` (${l.holds} hold)` : ''}`];
+  const eases = (l.eases || []).map((e) => `${e.e} ×${e.n}`).join(', ');
+  return `- \`${l.file}\` — ${bits.filter(Boolean).join(', ')}${eases ? `; easing ${eases}` : ''}${l.markers?.length ? `; markers: ${l.markers.join(', ')}` : ''}${l.name ? ` — "${l.name}"` : ''}`;
+}
+
+export function mediaSection(m) {
+  if (!m) return [];
+  const L = ['## Media'];
+  const saved = [...(m.svgs || []), ...(m.images || []), ...(m.videos || []), ...(m.lottie || []), ...(m.rive || []), ...(m.icons || [])].filter((x) => x.file).length + (m.share ? 1 : 0);
+  if (!saved && !(m.videos || []).length && !(m.fonts || []).length) {
+    L.push(m.error ? `_Media wasn't read: ${m.error}_` : '_No images, vector art, video or animation files found on the page._', '');
+    return L;
+  }
+  L.push(`${saved} file${saved === 1 ? '' : 's'} in assets/ (${kb(m.bytes || 0)}): the page's own media, saved as reference. Study them; rebuild the style, don't reuse the files.`, '');
+  const svgs = (m.svgs || []).filter((s) => s.file);
+  if (svgs.length) {
+    L.push('**Vector art** (assets/svg/)');
+    const sys = iconSystem(svgs);
+    if (sys) L.push(`- Icon system: ${sys}`);
+    const shown = [...svgs.filter((s) => s.role !== 'icon'), ...svgs.filter((s) => s.role === 'icon')].slice(0, 16);
+    for (const s of shown) L.push(svgLine(s));
+    if (svgs.length > shown.length) L.push(`- …and ${svgs.length - shown.length} more in assets/svg/`);
+    L.push('');
+  }
+  const imgs = (m.images || []).filter((x) => x.file);
+  if (imgs.length) {
+    L.push('**Images** (assets/img/)');
+    for (const x of imgs.slice(0, 20)) L.push(imageLine(x));
+    if (imgs.length > 20) L.push(`- …and ${imgs.length - 20} more in assets/img/`);
+    L.push('');
+  }
+  if ((m.videos || []).length) {
+    L.push('**Video**' + ((m.videos || []).some((v) => v.file) ? ' (assets/video/)' : ''));
+    for (const v of m.videos.slice(0, 8)) L.push(videoLine(v));
+    L.push('');
+  }
+  if ((m.lottie || []).length) {
+    L.push('**Lottie animations** (assets/lottie/) — exact motion: read the file for each keyframe');
+    for (const l of m.lottie) L.push(lottieLine(l));
+    L.push('');
+  }
+  if ((m.rive || []).length) L.push(`**Rive** — ${m.rive.map((x) => `\`${x.file}\` (${kb(x.bytes)})`).join(', ')}; state machines not parsed`, '');
+  const icons = (m.icons || []).filter((x) => x.file);
+  if (icons.length || m.share) {
+    const parts = icons.map((x) => `\`${x.file}\`${x.sizes ? ` (${x.sizes})` : ''}`);
+    if (m.share) parts.push(`share image \`${m.share.file}\`${m.share.w ? ` (${m.share.w}×${m.share.h})` : ''}`);
+    L.push(`**Site icon and share image** — ${parts.join(', ')}`, '');
+  }
+  if ((m.fonts || []).length) {
+    L.push(`**Webfont files** (not saved: fonts are licensed) — ${m.fonts.map((f) => `${f.n} ${f.format} (${f.source})`).join(', ')}`, '');
+  }
+  if ((m.skipped || []).length) {
+    L.push(`**Not saved** — ${m.skipped.slice(0, 8).map((x) => `${x.what.length > 90 ? x.what.slice(0, 87) + '…' : x.what} (${x.why})`).join('; ')}`, '');
+  }
+  return L;
 }
 
 // Swap the Note section of an existing clip.md (used when a note is added after clipping)

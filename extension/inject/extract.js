@@ -47,6 +47,7 @@
   };
   const textColor = {}, families = {}, sizes = {}, radii = {}, shadows = {}, borders = {}, pads = {}, gaps = {}, transitions = {};
   const headings = [];
+  const pictures = []; // [el, rect, computed style, url, kind] for the media inventory below
   let bodyLine;
 
   for (const el of all) {
@@ -54,6 +55,10 @@
     if (r.width < 2 || r.height < 2) continue;
     const cs = getComputedStyle(el);
     if (cs.visibility === 'hidden' || cs.display === 'none') continue;
+    if (el.tagName === 'IMG' && el.currentSrc) pictures.push([el, r, cs, el.currentSrc, 'img']);
+    if (cs.backgroundImage && cs.backgroundImage.includes('url(')) {
+      for (const m of cs.backgroundImage.matchAll(/url\((['"]?)(.*?)\1\)/g)) pictures.push([el, r, cs, m[2], 'background']);
+    }
 
     // own text length (direct text nodes only)
     let own = 0;
@@ -248,7 +253,162 @@
     details: document.querySelectorAll('details, [aria-expanded]').length,
   };
 
+  // ---------- media: the page's own vector art, images, video and animation files ----------
+  // An inventory of what's on the page, with each item's role and treatment. The inspector then takes the files
+  // themselves from Chrome's network cache and saves them into the clip's assets/ folder.
+  try { out.media = media(); } catch (e) { out.media = { error: String(e?.message || e) }; }
+
   // background color samples from the scroll pass
   out.bgSamples = A.colors || {};
   return out;
+
+  function media() {
+    const top0 = scrollY;
+    const abs = (u) => { try { return new URL(u, location.href).href; } catch { return ''; } };
+    const hayOf = (el, extra = '') => [el.id, el.getAttribute('class'), el.getAttribute('aria-label'), el.getAttribute('alt'), el.getAttribute('title'), extra].join(' ');
+    const home = (el) => el.closest(`a[href="/"],a[href="./"],a[href="${location.origin}"],a[href="${location.origin}/"]`);
+    const roleOf = (el, r, extra = '') => {
+      const y = r.top + top0;
+      const side = Math.max(r.width, r.height);
+      if (/(^|[\s_-])(logo|brand|wordmark|logotype)/i.test(hayOf(el, extra)) || (home(el) && y < 240 && side > 24)) return 'logo';
+      if (side <= 48) return 'icon';
+      const round = parseFloat(getComputedStyle(el).borderTopLeftRadius) >= Math.min(r.width, r.height) / 3;
+      if (/avatar|author|profile|headshot/i.test(hayOf(el, extra)) || (side <= 128 && Math.abs(r.width - r.height) < 6 && round)) return 'avatar';
+      if (y < innerHeight && r.width * r.height > innerWidth * innerHeight * 0.18) return 'hero';
+      return null;
+    };
+    const treatment = (cs, el) => ({
+      fit: el.tagName === 'IMG' && cs.objectFit !== 'fill' ? cs.objectFit : undefined,
+      radius: cs.borderRadius && cs.borderRadius !== '0px' ? cs.borderRadius : undefined,
+      filter: cs.filter && cs.filter !== 'none' ? cs.filter : undefined,
+      blend: cs.mixBlendMode && cs.mixBlendMode !== 'normal' ? cs.mixBlendMode : undefined,
+      mask: (cs.maskImage || cs.webkitMaskImage || 'none') !== 'none' ? true : undefined,
+      opacity: +cs.opacity < 1 ? +(+cs.opacity).toFixed(2) : undefined,
+    });
+
+    // -- inline SVG: serialized with its computed paint, so the file looks the same outside the page's CSS
+    const NS = 'http://www.w3.org/2000/svg';
+    const PAINT = ['fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'stroke-dasharray', 'fill-rule', 'opacity', 'fill-opacity', 'stroke-opacity'];
+    const SHAPE = /^(path|circle|rect|line|polyline|polygon|ellipse|text|tspan|use)$/;
+    const LOTTIE = 'lottie-player,dotlottie-player,dotlottie-wc,[data-animation-path],[data-lottie],[data-animation-type="lottie"]';
+    // what the drawing stands for: its own label, else the label of the button or link it sits in
+    const labelOf = (svg) => {
+      const own = svg.getAttribute('aria-label') || svg.querySelector('title')?.textContent || '';
+      const host = svg.closest('a,button,[role="button"]');
+      const t = own || host?.getAttribute('aria-label') || host?.getAttribute('title') || (host?.textContent || '').trim();
+      return t && t.trim().length <= 32 ? t.trim() : undefined;
+    };
+    const urlRef = (v) => v.replace(/url\(["']?[^#"')]*#([^"')]+)["']?\)/g, 'url(#$1)');
+    const mode = (arr) => { const c = {}; let best, n = 0; for (const v of arr) if (v != null) { c[v] = (c[v] || 0) + 1; if (c[v] > n) { n = c[v]; best = v; } } return best; };
+    const hash = (s) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + s.length.toString(36); };
+    const svgs = new Map();
+    let markupBudget = 4e6;
+    for (const svg of Array.from(document.querySelectorAll('svg')).slice(0, 600)) {
+      if (svg.ownerSVGElement) continue;                                   // nested: part of a bigger drawing
+      if (svg.closest(LOTTIE) || svg.querySelector('[id^="__lottie_element"]')) continue; // a Lottie frame; the JSON is saved instead
+      const r = svg.getBoundingClientRect();
+      if (r.width < 8 || r.height < 8) continue;                           // sprite sheets and hidden defs
+      const cs = getComputedStyle(svg);
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      const clone = svg.cloneNode(true);
+      const src = [svg, ...svg.querySelectorAll('*')], dst = [clone, ...clone.querySelectorAll('*')];
+      const strokes = [], caps = [], joins = [], colors = new Set();
+      let line = 0, solid = 0, shapes = 0;
+      src.forEach((el, i) => {
+        if (i > 1500) return; // a huge illustration: paint the first 1,500 elements, keep the rest as drawn in the markup
+        const tag = el.tagName.toLowerCase();
+        if (i && !SHAPE.test(tag) && tag !== 'g') return;
+        const s = getComputedStyle(el);
+        for (const p of PAINT) { const v = s.getPropertyValue(p); if (v) dst[i].setAttribute(p, urlRef(v)); }
+        if (!SHAPE.test(tag)) return;
+        shapes++;
+        const stroked = s.stroke !== 'none' && parseFloat(s.strokeWidth) > 0;
+        const filled = s.fill !== 'none' && parseFloat(s.fillOpacity) > 0;
+        if (stroked) { strokes.push(s.strokeWidth); caps.push(s.strokeLinecap); joins.push(s.strokeLinejoin); if (!s.stroke.startsWith('url')) colors.add(s.stroke); }
+        if (filled && !s.fill.startsWith('url')) colors.add(s.fill);
+        if (stroked && !filled) line++; else if (filled && !stroked) solid++;
+      });
+      // sprite icons (<use href="#icon">): draw the referenced symbol in place, so the file stands alone
+      for (const u of clone.querySelectorAll('use')) {
+        const ref = u.getAttribute('href') || u.getAttribute('xlink:href') || '';
+        const target = ref.startsWith('#') && document.getElementById(ref.slice(1));
+        if (!target) continue;
+        const g = document.createElementNS(NS, 'g');
+        for (const at of Array.from(u.attributes)) if (!/^(href|xlink:href|x|y|width|height)$/.test(at.name)) g.setAttribute(at.name, at.value);
+        const x = u.getAttribute('x'), y = u.getAttribute('y');
+        if (x || y) g.setAttribute('transform', `translate(${x || 0} ${y || 0})${g.getAttribute('transform') ? ' ' + g.getAttribute('transform') : ''}`);
+        if (target.tagName.toLowerCase() === 'symbol') {
+          if (!clone.getAttribute('viewBox') && target.getAttribute('viewBox')) clone.setAttribute('viewBox', target.getAttribute('viewBox'));
+          for (const c of Array.from(target.childNodes)) g.append(c.cloneNode(true));
+        } else g.append(target.cloneNode(true));
+        u.replaceWith(g);
+      }
+      clone.setAttribute('xmlns', NS);
+      if (!clone.getAttribute('width')) clone.setAttribute('width', String(Math.round(r.width)));
+      if (!clone.getAttribute('height')) clone.setAttribute('height', String(Math.round(r.height)));
+      let markup = new XMLSerializer().serializeToString(clone);
+      const key = hash(markup);
+      const seen = svgs.get(key);
+      if (seen) { seen.n++; continue; }
+      if (markup.length > 200000 || markup.length > markupBudget) markup = '';
+      markupBudget -= markup.length;
+      svgs.set(key, {
+        key, markup, w: Math.round(r.width), h: Math.round(r.height), y: Math.round(r.top + top0),
+        viewBox: clone.getAttribute('viewBox') || undefined, role: roleOf(svg, r) || (Math.max(r.width, r.height) > 120 ? 'illustration' : 'graphic'),
+        style: line && !solid ? 'line' : solid && !line ? 'solid' : shapes ? 'mixed' : undefined,
+        strokeWidth: mode(strokes), cap: mode(caps), join: mode(joins), colors: [...colors].slice(0, 4), shapes, n: 1,
+        label: labelOf(svg),
+      });
+    }
+
+    // -- images: <img> and CSS backgrounds, with where and how they're shown
+    const images = new Map();
+    for (const [el, r, cs, raw, kind] of pictures) {
+      const url = raw.startsWith('data:') ? raw : abs(raw);
+      if (!url || url.startsWith('blob:') || (url.startsWith('data:') && url.length > 400000)) continue;
+      const hit = images.get(url);
+      if (hit) { hit.n++; continue; }
+      const alt = el.tagName === 'IMG' ? (el.getAttribute('alt') || '').trim().slice(0, 80) : '';
+      images.set(url, {
+        url, kind, role: roleOf(el, r, url.startsWith('data:') ? '' : url) || (kind === 'background' ? 'background' : null),
+        w: Math.round(r.width), h: Math.round(r.height), y: Math.round(r.top + top0),
+        nw: el.naturalWidth || undefined, nh: el.naturalHeight || undefined, alt: alt || undefined,
+        repeat: kind === 'background' && cs.backgroundRepeat !== 'no-repeat' && !/cover|contain/.test(cs.backgroundSize) ? cs.backgroundRepeat : undefined,
+        ...treatment(cs, el), n: 1,
+      });
+    }
+
+    // -- video
+    const videos = [];
+    for (const v of document.querySelectorAll('video')) {
+      const r = v.getBoundingClientRect();
+      const src = v.currentSrc || v.src || v.querySelector('source')?.src || '';
+      videos.push({
+        url: src.startsWith('blob:') ? '' : abs(src), streamed: src.startsWith('blob:') || undefined, poster: v.poster ? abs(v.poster) : undefined,
+        w: Math.round(r.width), h: Math.round(r.height), y: Math.round(r.top + top0), vw: v.videoWidth || undefined, vh: v.videoHeight || undefined,
+        duration: Number.isFinite(v.duration) ? +v.duration.toFixed(1) : undefined, loop: v.loop || undefined, autoplay: v.autoplay || undefined,
+        muted: v.muted || undefined, playing: !v.paused || undefined, role: roleOf(v, r), ...treatment(getComputedStyle(v), v),
+      });
+      if (videos.length >= 20) break;
+    }
+
+    // -- animation files the page declares (the inspector also finds them among what the page loaded)
+    const lottie = [];
+    for (const el of document.querySelectorAll(LOTTIE)) {
+      const s = el.getAttribute('src') || el.dataset.animationPath || el.dataset.src || el.dataset.lottie || '';
+      if (s && !lottie.includes(abs(s))) lottie.push(abs(s));
+    }
+
+    const icons = Array.from(document.querySelectorAll('link[rel~="icon" i],link[rel="apple-touch-icon" i],link[rel="mask-icon" i]'))
+      .map((l) => ({ url: abs(l.getAttribute('href') || ''), rel: l.rel, sizes: l.getAttribute('sizes') || undefined, type: l.type || undefined }))
+      .filter((i) => i.url).slice(0, 8);
+    const share = abs(meta('meta[property="og:image"]') || meta('meta[name="twitter:image"]') || '') || undefined;
+
+    return {
+      svgs: [...svgs.values()],
+      images: [...images.values()].sort((a, b) => b.w * b.h - a.w * a.h).slice(0, 300),
+      videos, lottie, icons, share,
+      counts: { svg: svgs.size, images: images.size, video: videos.length },
+    };
+  }
 })();

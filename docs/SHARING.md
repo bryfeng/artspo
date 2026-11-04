@@ -12,6 +12,7 @@ The book is built from the public edition, which leaves out:
 
 - clips marked `private: true`, and clips that look like logged-in pages (app., dashboard and workspace URLs)
 - your notes (unless you add `--with-notes`), page text, full-page shots, filmstrips, raw `clip.md` and file paths
+- each clip's `assets/`: the sites' own icons, images, video and animation files never go in a book
 - screenshots of the sites you clipped. Clips appear as their rebuilt palette and type instead. Add `--thumbnails`
   if you want each site's screenshot shown; those images belong to the sites, so it's your call.
 

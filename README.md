@@ -29,6 +29,11 @@ Every clip becomes a folder with a `clip.md`: the palette by share of the page, 
 buttons, and every animation with its duration, easing, delay and stagger. The catalogue rebuilds each one from
 those measurements, so you can see a site's design system at a glance.
 
+It also keeps the page's own media in `assets/`: its icons and logo as SVG, its images, short videos, and Lottie
+or Rive animations, each described by how the page shows it (an icon set as "line icons on a 24×24 grid, stroke
+1.5px, round caps"; a hero as "object-fit cover, radius 24px"). A Lottie file is read for its exact keyframes and
+easing curves. The files are reference for you and your agent; books never include them.
+
 ![A clip rebuilt from its measurements: palette, type specimens, buttons and radii](docs/media/clip-elements.png)
 
 ## Motion, not just pixels
@@ -69,7 +74,7 @@ that lets an agent shop it item by item: pick a language, a technique or a measu
 patterns, credited to you.
 
 Books go on GitHub Pages (or any static host) with a preview card for when the link is posted. They leave out
-logged-in pages, your notes, page text, and by default the screenshots of the sites you clipped.
+logged-in pages, your notes, page text, the sites' saved media, and by default the screenshots of the sites you clipped.
 [docs/SHARING.md](docs/SHARING.md) has the steps.
 
 ![A shared book: copy any pattern as a prompt, or give your agent the whole book](docs/media/book.png)

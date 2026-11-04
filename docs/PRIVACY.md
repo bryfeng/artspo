@@ -3,10 +3,12 @@
 Artspo has no server, no account, no analytics and no tracking. It sends nothing anywhere.
 
 **What it reads.** Only pages you clip. When you clip a page, it takes a screenshot of the visible tab. Later it
-opens that same URL in a background tab, scrolls it, and measures its styles and motion. It uses your normal
-Chrome profile, so pages behind a login inspect as you see them.
+opens that same URL in a background tab, scrolls it, measures its styles and motion, and saves the page's own
+media (icons, images, short videos, animation files). It uses your normal Chrome profile, so pages behind a login
+inspect as you see them: their images, including avatars or documents shown on the page, are saved too.
+Clip only what you're comfortable keeping.
 
-**What it writes.** Files in your library folder (`Downloads/artspo` unless you chose another in setup): `clip.md`, screenshots, and `AGENTS.md`. The
+**What it writes.** Files in your library folder (`Downloads/artspo` unless you chose another in setup): `clip.md`, screenshots, the page's media in `assets/`, and `AGENTS.md`. The
 extension also keeps a list of your clips in Chrome's local extension storage, so it can update a clip instead of
 duplicating it.
 
@@ -20,14 +22,16 @@ duplicating it.
 | `storage` | to remember your clips, collections and settings |
 | `idle`, `alarms` | to run inspections while you're away |
 
-**Network.** Inspection loads the page you clipped, plus any stylesheets it uses (to read its animations).
-The extension also looks for the Artspo MCP server on this computer (`127.0.0.1`, never the internet), so your
-own coding agent can ask it to clip pages. By default you approve each request in the popup; turn it off in setup
-under *Let your agent clip pages*. Nothing else. See [MCP.md](MCP.md).
+**Network.** Inspection loads the page you clipped, plus any stylesheets it uses (to read its animations). Media
+is saved from what the page already loaded; Artspo requests a file again only when Chrome's cache no longer has it,
+plus the page's share image. The extension also looks for the Artspo MCP server on this computer (`127.0.0.1`,
+never the internet), so your own coding agent can ask it to clip pages. By default you approve each request in the
+popup; turn it off in setup under *Let your agent clip pages*. Nothing else, and nothing is sent anywhere. See
+[MCP.md](MCP.md).
 
 **Sharing.** Your library stays on your computer until you or your agent publish something. A published book
-leaves out logged-in pages, your notes, page text and, unless you ask for them, screenshots of the sites you
-clipped. See [SHARING.md](SHARING.md).
+leaves out logged-in pages, your notes, page text, the sites' saved media and, unless you ask for them,
+screenshots of the sites you clipped. See [SHARING.md](SHARING.md).
 
 **Removing it.** Remove the extension in `chrome://extensions` (this clears its list) and delete
 `Downloads/artspo` if you want the files gone too.

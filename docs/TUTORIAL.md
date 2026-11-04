@@ -78,6 +78,8 @@ import it. [SHARING.md](SHARING.md) has the details.
 
 - **Your note matters more than anything measured.** "The count-up on scroll feels earned" steers the agent
   more than a hex value.
+- Each clip keeps the page's icons, images, short videos and Lottie files in `assets/`, listed under **Media**.
+  They're reference: agents are told to rebuild the style, not reuse the files.
 - Each `clip.md` ends with **Not captured**: clicks, hover end-states, WebGL and video internals. Agents are
   told not to guess those.
 - Pages behind a login work, because inspection uses your normal Chrome profile. They stay out of the public

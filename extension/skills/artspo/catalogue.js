@@ -284,7 +284,7 @@ const TABS = {
   pattern: [['specimen', 'Specimen'], ['evidence', 'Evidence'], ['recipe', 'Recipe']],
   work: [['preview', 'Preview'], ['files', 'Files']],
 };
-const tabsFor = (it) => TABS[LAYER[it.type]].filter(([k]) => k !== 'screens' || it.img || it.frames.length || it.full);
+const tabsFor = (it) => TABS[LAYER[it.type]].filter(([k]) => k !== 'screens' || it.img || it.frames.length || it.full || it.assets?.length);
 const visibleOrder = () => [...document.querySelectorAll('main > section[data-layer]:not([hidden]) .card:not(.filtered-out)')].map((c) => c.dataset.id);
 function openViewer(id, tab) {
   const it = items.get(id); if (!it) return;
@@ -651,7 +651,34 @@ function clipScreens(k, st) {
   }
   if (k.img) { const b = blk('As you saw it', el('span', 'hint', 'seen.jpg, the viewport when you clipped')); b.append(img(k.img, 'Seen', 'shotfull')); b.lastChild.style.cssText = 'width:100%;border-radius:2px;display:block'; st.append(b); }
   if (k.full) { const b = blk('Full page', el('span', 'hint', 'full.jpg at 1440px wide; scroll inside')); const f = el('div', 'fullpage'); f.append(img(k.full, 'Full page')); b.append(f); st.append(b); }
-  if (!k.frames.length && !k.img && !k.full) st.append(el('p', 'note empty', 'No screens for this clip.'));
+  const as = k.assets || [];
+  if (as.length) {
+    const b = blk(`Media · ${as.length} file${as.length === 1 ? '' : 's'}`, el('span', 'hint', 'the page’s own files in assets/, for reference: rebuild the style, don’t reuse them'));
+    const grid = el('div', 'assets');
+    for (const a of as) {
+      const f = el('figure', `asset ${a.kind}`);
+      const name = a.src.split('/').pop();
+      if (a.kind === 'video') {
+        const v = el('video'); v.src = a.src; v.muted = true; v.loop = true; v.controls = true; v.preload = 'metadata'; v.playsInline = true;
+        f.append(v);
+      } else if (['svg', 'img', 'icon', 'share'].includes(a.kind)) {
+        f.append(img(a.src, a.label || name));
+        // a site's art keeps its own colors whatever the catalogue's theme: light ink gets a dark tile
+        const ink = (a.label.match(/#[0-9a-f]{6}\b/i) || [])[0];
+        if (a.kind === 'svg' || a.kind === 'icon') f.classList.add(ink && lum(ink) > 0.55 ? 'on-dark' : 'on-light');
+      }
+      else f.append(el('div', 'asset-file mono', a.kind === 'lottie' ? 'Lottie' : a.kind === 'rive' ? 'Rive' : name.split('.').pop()));
+      const cap = el('figcaption');
+      const link = el('a', 'mono', name); link.href = a.src; link.target = '_blank'; link.rel = 'noopener';
+      cap.append(link);
+      if (a.label) cap.append(el('span', 'hint', a.label));
+      f.append(cap);
+      grid.append(f);
+    }
+    b.append(grid);
+    st.append(b);
+  }
+  if (!k.frames.length && !k.img && !k.full && !as.length) st.append(el('p', 'note empty', 'No screens for this clip.'));
 }
 function clipRecord(k, st) {
   const b = blk('clip.md', el('span', 'hint', 'the record your agent reads'));

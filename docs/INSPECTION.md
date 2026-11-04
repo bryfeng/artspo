@@ -14,6 +14,27 @@ What Artspo measures when it inspects a clipped page, how, and what it can't see
 4. Extracts computed tokens: area-weighted surface colors, text colors, type scale, radii, shadows, spacing,
    button styles, declared transitions, `@keyframes` (fetching cross-origin stylesheets when needed), and
    library signals.
+5. Saves the page's own media into the clip's `assets/` folder and lists it under **Media** in clip.md (below).
+
+### Media
+
+The pass watches what the page loads from its first request, then takes each file's bytes from Chrome's
+network cache, so nothing is downloaded twice.
+
+| Kind | Saved as | Measured |
+|---|---|---|
+| Inline SVG (icons, logo, illustrations) | `assets/svg/NN_<role>.svg`, with the page's CSS paint (fill, stroke, width, caps) written into the file so it looks the same on its own; sprite icons (`<use href="#…">`) are drawn in full | role, size, viewBox, line or solid, stroke width, caps and joins, colors; the icon set is summarized as one line (grid, stroke, caps, ink) |
+| Images (`<img>`, CSS backgrounds, video posters, images loaded but not placed) | `assets/img/NN_<name>.<ext>` in the original format | role (logo, hero, avatar, icon, background), shown size and file size, object-fit, radius, filter, blend, mask, tiling, alt text |
+| Video | `assets/video/NN_<name>.<ext>`, when it's one file under 15 MB | autoplay, loop, muted, duration, file and shown size, poster |
+| Lottie (`.json`, `.lottie`) | `assets/lottie/` | frame rate, length, size, layers, keyframes and their easing curves, markers |
+| Rive | `assets/rive/` | size only; state machines aren't parsed |
+| Site icon, share image | `assets/icon/`, `assets/share.<ext>` | sizes |
+| Webfonts | not saved: fonts are licensed | where they come from (Google Fonts, Adobe Fonts, self-hosted) and their format |
+
+Limits per clip: 60 SVGs, 80 images (8 MB each), 4 videos (15 MB each), 8 Lottie files, 60 MB in all. What goes
+over is listed under **Not saved**. Video streamed in pieces (most long or adaptive video) has no single file
+to save; its facts and poster are still recorded. A file Chrome's cache no longer has is fetched again, and the
+share image is always fetched, since pages don't load it themselves.
 
 ### Throttling check
 
@@ -26,7 +47,8 @@ in each clip's **Capture diagnostics** section (`Mode`, fps, page visibility). I
 
 - Never clicks, so menus, modals and tabs aren't captured.
 - Hover states aren't forced. Their timings appear under Declared transitions.
-- WebGL, Lottie/Rive and video internals are opaque.
+- WebGL scenes and video are opaque: video files are saved to watch, but their motion isn't measured. Rive
+  files are saved but not parsed. Lottie files are read in full.
 - With privately bundled GSAP, motion is sampled: approximate durations, no easing.
   That's the case for a deep dive with a reverse-engineering tool (see the skill).
 - Pages behind a login inspect fine, because the pass uses your normal Chrome profile.
@@ -50,6 +72,7 @@ The catalogue replays these on a timeline, and marks the approximate ones.
 | `lib/inspector.js` | the DevTools Protocol pass |
 | `inject/instrument.js` | runs in the page from document start; records motion |
 | `inject/extract.js` | runs in the page at the end; measures tokens |
+| `lib/media.js` | picks the page's media out of what it loaded, saves it, reads Lottie files |
 | `lib/clipmd.js` | turns measurements into `clip.md` |
 | `lib/writer.js` + `offscreen/` | writes files via the downloads API |
 | `popup/` | the clipper UI |
