@@ -74,4 +74,7 @@ extension does what it always does: it writes the clips. The server only reads f
 - **"The Artspo extension isn't connected."** Check that Chrome is open, Artspo is 0.8.0 or newer (`git pull`,
   then ↻ on Artspo in `chrome://extensions`), and Setup isn't set to Off. Then wait a minute.
 - **"Port 47827 is taken by another program."** Something else is using the port. `lsof -i :47827` shows what.
+- **"WebSocket connection … failed: net::ERR_CONNECTION_REFUSED" on Artspo's Errors page.** Artspo 0.9.0 and
+  older logged that whenever no server was running; it was harmless. Update to 0.9.1 or newer and click
+  **Clear all**.
 - **Logs.** The server writes to stderr, which your agent keeps in its MCP logs (in Claude Code, `/mcp`).
