@@ -18,7 +18,7 @@ Artspo is a Chrome extension that clips websites as design inspiration. The libr
 Your job is to keep that chain intact: every work traces to patterns, every pattern traces to clips.
 `catalogue.html` shows all of it on one page, with that lineage clickable.
 
-Skill version 0.9.4. The library's `AGENTS.md` ends with the version of the extension that wrote it. If that's newer
+Skill version 0.9.5. The library's `AGENTS.md` ends with the version of the extension that wrote it. If that's newer
 than this skill, tell the user once that their skill is out of date and how to update it:
 `curl -fsSL https://raw.githubusercontent.com/bryfeng/artspo/main/install.sh | sh`, then restart the agent.
 
@@ -226,6 +226,12 @@ screens; a pattern plays its specimen and lists its evidence and recipe; a work 
 The more exact clip.md and the specimens are, the better it shows. The extension's popup links to it
 (Catalogue ↗). If you can't run Python, say so and skip it: the files are the source of truth, and the page is
 only a view.
+
+**Canvas.** When the user wants to see the saved visuals themselves ("show me all the assets", "a canvas of my
+inspo"), run `python3 <this skill's folder>/canvas.py ~/Downloads/artspo` (add `--collection NAME` for one). It
+writes `artspo/canvas.html`: every saved illustration, image, video and animation file on one masonry page, with
+filters by collection and kind, shuffle, and a viewer that links back to each clip. It reads the files in place,
+so curate first if the user wants people and screenshots gone. It's private: never publish it or its files.
 
 ## Publish a book
 

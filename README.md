@@ -33,8 +33,8 @@ It also keeps the page's visual material in `assets/`: illustration, textures an
 or Rive animations, each described by how the page shows it (an icon set as "line icons on a 24×24 grid, stroke
 1.5px, round caps"; a hero as "object-fit cover, radius 24px"). A Lottie file is read for its exact keyframes and
 easing curves. Logos, icons, photos of people and product screenshots aren't saved, just summarized; ask your agent
-to "curate my clips" and it looks through what's left and sets aside anything that slipped through. The files are
-reference for you and your agent; books never include them.
+to "curate my clips" and it looks through what's left and sets aside anything that slipped through, or for "a canvas
+of my assets" to see them all on one page. The files are reference for you and your agent; books never include them.
 
 ![A clip rebuilt from its measurements: palette, type specimens, buttons and radii](docs/media/clip-elements.png)
 

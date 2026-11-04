@@ -233,6 +233,16 @@ execFileSync('python3', [cat, lib], { stdio: 'ignore' });
 assert.doesNotMatch(fs.readFileSync(path.join(lib, 'catalogue.html'), 'utf8'), /_set-aside|_curate/);
 ok('curate.py: contact sheets, then set aside by tile number; clip.md and the catalogue follow');
 
+// canvas: every saved visual on one page, read in place; set-aside files don't show
+execFileSync('python3', [path.join(repo, 'extension/skills/artspo/canvas.py'), lib], { stdio: 'ignore' });
+const canvas = fs.readFileSync(path.join(lib, 'canvas.html'), 'utf8');
+const items = JSON.parse(canvas.match(/const ITEMS = (\[.*?\]);\n/s)[1]);
+assert.ok(items.some((x) => x.src.endsWith(star.file) && x.kind === 'art'));
+assert.ok(items.some((x) => x.kind === 'video') && items.some((x) => x.kind === 'motion'));
+assert.ok(!items.some((x) => x.src.endsWith(img('/photo.jpg').file)), 'a set-aside file is not on the canvas');
+assert.ok(items.every((x) => fs.existsSync(path.join(lib, x.src))), 'every tile points at a file that exists');
+ok('canvas.py: one page of every saved visual, without set-aside files');
+
 console.log(`\n${passed} checks passed`);
 fs.rmSync(work, { recursive: true, force: true });
 ext.srv.close(); site?.srv.close();
