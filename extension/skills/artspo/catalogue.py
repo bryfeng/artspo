@@ -9,7 +9,7 @@ Usage:  python3 catalogue.py [LIBRARY] [options]
   --embed        one self-contained file, images inlined (to send, or to publish as a single page)
   --site DIR     a static folder (index.html + img/ + works/) for GitHub Pages, Netlify, Cloudflare Pages…
   --public       the public edition: leaves out private and logged-in clips, your notes, site text,
-                 full-page shots, filmstrips, raw clip.md and file paths. Prints what it left out.
+                 full-page shots, filmstrips, saved site media, raw clip.md and file paths. Prints what it left out.
   --with-notes   with --public: keep your notes
   --no-works     leave works out (a book of patterns and clips only, e.g. when works were made for clients)
   --thumbnails   with --public: show each clip's screenshot (by default clips appear only as rebuilt element sheets)
@@ -303,6 +303,25 @@ def frames_of(d, body):
     return [n for n in names if (d / "filmstrip" / n).exists()]
 
 
+ASSET_KIND = {"svg": "svg", "img": "img", "video": "video", "lottie": "lottie", "rive": "rive", "icon": "icon"}
+
+
+def assets_of(d, body):
+    """The page's own media files listed under ## Media, as [{src, kind, label}], for the private catalogue."""
+    out = []
+    for line in section(body, "Media").splitlines():
+        line = line[2:].strip() if line.startswith("- ") else line.strip()
+        for m in re.finditer(r"`(assets/[^`]+)`", line):
+            rel = m.group(1)
+            if not (d / rel).exists() or any(a["rel"] == rel for a in out):
+                continue
+            part = rel.split("/")
+            kind = "share" if part[1].startswith("share.") else ASSET_KIND.get(part[1], "file")
+            label = line.split(" — ", 1)[1] if " — " in line and line.startswith("`" + rel) else ""
+            out.append(dict(rel=rel, kind=kind, label=re.sub(r"`[^`]+`", "", label).strip(" ,;")[:160]))
+    return out
+
+
 def read_clips(lib):
     clips, superseded = [], 0
     for coll in sorted(p for p in lib.iterdir() if p.is_dir() and p.name not in RESERVED and not p.name.startswith(".")):
@@ -331,6 +350,7 @@ def read_clips(lib):
                 img=next((f"{base}/{n}" for n in ("seen.jpg", "filmstrip/01.jpg", "full.jpg") if (d / n).exists()), ""),
                 full=f"{base}/full.jpg" if (d / "full.jpg").exists() else "",
                 frames=[f"{base}/filmstrip/{n}" for n in frames_of(d, body)],
+                assets=[dict(src=f"{base}/{a['rel']}", kind=a["kind"], label=a["label"]) for a in assets_of(d, body)],
                 sheet=sheet, record=text, path=f"{base}/clip.md",
                 private=fm.get("private") is True, public=fm.get("public") is True))
     return clips, superseded
@@ -470,6 +490,7 @@ GENERIC = "Sphinx of black quartz, judge my vow"
 SITE_TEXT = re.compile(r'(?<=[\w\])])\s+"[^"]*("|$)')  # `h1.title "Create anything"` → `h1.title`; leaves `Display: "Inter"`
 EXAMPLE = re.compile(r'\s*— (e\.g\. )?"[^"]*("|$)')  # `— e.g. "New"`, `120px 400 Inter — "Revenue"`
 QUOTED = re.compile(r'\s*"[^"]*("|$)')
+ASSET_REF = re.compile(r"\s*\([^)]*\bassets/[^)]*\)|\s*the \S+ file is saved in assets/\S+ but")  # local media a book doesn't have
 
 
 def public_edition(clips, patterns, works, with_notes=False, thumbnails=False):
@@ -484,6 +505,7 @@ def public_edition(clips, patterns, works, with_notes=False, thumbnails=False):
             removed.append((c["title"], "looks like a logged-in page (set public: true in its clip.md to include it)"))
             continue
         s = c["sheet"]
+        s["gaps"] = [ASSET_REF.sub("", g) for g in s.get("gaps", [])]
         if s["display"]:
             s["display"]["sample"] = GENERIC
         for x in s["scale"]:
@@ -491,7 +513,7 @@ def public_edition(clips, patterns, works, with_notes=False, thumbnails=False):
         for m in s["motion"]:
             m["label"] = QUOTED.sub("", m["label"]).strip(", ") or "element"
             m["raw"] = ""
-        c.update(record="", full="", frames=[], tagline="", path="", tags=[])
+        c.update(record="", full="", frames=[], assets=[], tagline="", path="", tags=[])  # a site's own media never leaves your machine
         if not thumbnails:  # by default a public book shows no one else's pixels: clips appear as rebuilt element sheets
             c["img"] = ""
         if not with_notes:
@@ -635,6 +657,7 @@ def main(argv):
                 it["img"] = embed_image(lib, it["img"], 960, 600) if it["img"] else ""
                 it["full"] = embed_image(lib, it["full"], 720) if it["full"] else ""
                 it["frames"] = [embed_image(lib, fr, 720) for fr in it["frames"]]
+                it["assets"] = []  # a single file to send stays small; the assets live next to the library's catalogue
             for it in works:
                 it["img"] = embed_image(lib, it["img"], 960, 600) if it["img"] else ""
                 it["html"] = ""
@@ -660,7 +683,7 @@ def main(argv):
         print(f"  left out: {title} — {why}")
     if public:
         print("  also left out: notes" + ("" if "--with-notes" not in flags else " (kept: --with-notes)")
-              + ", page text, full-page shots, filmstrips, raw clip.md, work .md files, file paths"
+              + ", page text, full-page shots, filmstrips, the sites' saved media (assets/), raw clip.md, work .md files, file paths"
               + ("" if "--thumbnails" in flags else ", clip screenshots (add --thumbnails to show them)"))
     if site:
         print(f"  book: artbook.md (for agents), llms.txt + agents/ ({shop_items} items agents can fetch one by one), {cover} (social card)"

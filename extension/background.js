@@ -1,5 +1,5 @@
 import { inspect } from './lib/inspector.js';
-import { writeFiles } from './lib/writer.js';
+import { writeFiles, writeFilesBestEffort } from './lib/writer.js';
 import { buildStub, buildClipMd, replaceNote, cleanNote, buildCollectionMd } from './lib/clipmd.js';
 import { normUrl, cleanUrl } from './lib/url.js';
 import { startBridge, stopBridge, onBridgeAlarm, bridgeState } from './lib/bridge.js';
@@ -315,11 +315,25 @@ async function processQueue(reason) {
 async function runJob(job, reason) {
   await updateJob(job.id, { status: 'running', progress: 'starting', attempts: job.attempts + 1, startedAt: Date.now() });
   try {
-    const { result, frames, full, diag } = await inspect(job.url, (p) => updateJob(job.id, { progress: p }));
+    const { result, frames, full, diag, assets } = await inspect(job.url, (p) => updateJob(job.id, { progress: p }));
     diag.inspectedAt = localIso();
     diag.trigger = reason;
     const files = [];
     const listed = [];
+    // the page's own media first, one file at a time, so clip.md lists only what actually landed on disk
+    if (assets?.length) {
+      await updateJob(job.id, { progress: `saving ${assets.length} media files` });
+      const { ok, failed } = await writeFilesBestEffort(assets.map((a) => ({ ...a, path: `${job.dir}/${a.path}` })));
+      const lost = new Set(failed.map((f) => f.path.slice(job.dir.length + 1)));
+      if (lost.size && result?.assets) {
+        for (const list of ['svgs', 'images', 'videos', 'lottie', 'rive', 'icons']) {
+          for (const it of result.assets[list] || []) if (lost.has(it.file)) { it.notSaved = 'the file could not be written'; it.file = undefined; }
+        }
+        if (result.assets.share && lost.has(result.assets.share.file)) result.assets.share = null;
+        diag.errors.push(`${lost.size} media file(s) could not be written (${failed[0].error})`);
+      }
+      if (ok.length) listed.push(`assets/ — ${ok.length} file${ok.length === 1 ? '' : 's'}: the page's own media, listed under Media`);
+    }
     if (job.seen) listed.push('seen.jpg — the viewport exactly as it looked when you clipped it');
     if (full) {
       files.push({ path: `${job.dir}/full.jpg`, base64: full, mime: 'image/jpeg' });

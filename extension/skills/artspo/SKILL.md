@@ -18,7 +18,7 @@ Artspo is a Chrome extension that clips websites as design inspiration. The libr
 Your job is to keep that chain intact: every work traces to patterns, every pattern traces to clips.
 `catalogue.html` shows all of it on one page, with that lineage clickable.
 
-Skill version 0.8.0. The library's `AGENTS.md` ends with the version of the extension that wrote it. If that's newer
+Skill version 0.9.0. The library's `AGENTS.md` ends with the version of the extension that wrote it. If that's newer
 than this skill, tell the user once that their skill is out of date and how to update it:
 `curl -fsSL https://raw.githubusercontent.com/bryfeng/artspo/main/install.sh | sh`, then restart the agent.
 
@@ -39,6 +39,9 @@ artspo/
       seen.jpg                      viewport exactly as the user saw it when clipping
       full.jpg                      full page, 1440px wide
       filmstrip/NN.jpg              viewport frames top → bottom during an automated scroll
+      assets/                       the page's own media, listed and measured under ## Media in clip.md:
+        svg/  img/  video/            vector art (icons, logo, illustrations), images, short videos
+        lottie/  rive/  icon/         animation files, the site icon; share.<ext> is the social-share image
   patterns/
     INDEX.md                        every pattern, one line each; starred first
     languages/<id>.md
@@ -63,6 +66,9 @@ Older libraries may have `_generated/` instead of `works/`. The catalogue lists 
 2. Read the frontmatter and **Note** of every clip in scope before going deeper.
 3. Read the full `clip.md` only for clips you'll draw from. Open images only to judge feel: `seen.jpg` for the
    impression, `full.jpg` for structure, the filmstrip for pacing.
+   `assets/` holds the page's own files. Look at its icons, illustrations and images to judge their style (stroke,
+   corners, fill, color, crop, treatment). A Lottie file is exact motion: read it for keyframes and easings.
+   Trust the **Media** list in clip.md over the folder: a re-inspection can leave older files behind.
 4. There is one clip per page: clipping a page again updates its folder. Skip clips whose frontmatter says
    `status: superseded` (duplicates left by older versions; `superseded_by` points to the current one).
 5. Trust the frame range listed under **Files** in clip.md (e.g. `filmstrip/01–09.jpg`). A re-inspected clip can
@@ -75,6 +81,7 @@ Older libraries may have `_generated/` instead of `works/`. The catalogue lists 
 | Motion: CSS animations/transitions, `element.animate`, GSAP lines | Exact durations, easings, staggers. |
 | Motion lines marked "JS-driven, sampled from inline styles" | Approximate: duration ±1 frame, easing unknown. |
 | Declared transitions | Hover/focus timings that were never triggered. The end state is unknown. |
+| Media | Files saved from what the page loaded, with how each was shown (size, fit, radius, filter). The icon-system line and Lottie easings are measured. Roles (logo, hero, icon, avatar) are inferred from size and placement. |
 | Not captured | Known gaps. Never fill these with guesses. |
 | Capture diagnostics | If it says THROTTLED, treat that clip's JS motion as unreliable. |
 
@@ -124,7 +131,7 @@ One- or two-sentence description of the move.
 ## Specimen          ← one ```html block: a live demo of the move (rules below)
 ## Use when / ## Avoid when
 ## Pairs with        ← links to other patterns
-## Evidence          ← one line per clip: verbatim quote from clip.md, or [seen.jpg]/[full.jpg] observation
+## Evidence          ← one line per clip: verbatim quote from clip.md, or [seen.jpg]/[full.jpg]/[assets/…] observation
 ```
 
 Language files carry: the feel (one line), defining traits per facet, the techniques they use, starter tokens
@@ -238,8 +245,8 @@ same book as one Markdown file for agents, plus an **agent catalogue** agents ca
    - A book in a subfolder of a site (`--url https://artbook.dev/library/`) gets no `CNAME`; the parent site has it.
    - One self-contained file instead of a folder: `--public --embed --out FILE` (no artbook.md, cover or agent catalogue).
 2. **Show the user what was left out.** The script prints it: clips marked `private: true`, clips that look like
-   logged-in pages (app., dashboard, workspace URLs), plus notes, page text, full-page shots, filmstrips, raw
-   clip.md and file paths, which the public edition always drops. Ask before publishing if anything listed
+   logged-in pages (app., dashboard, workspace URLs), plus notes, page text, full-page shots, filmstrips, the
+   sites' saved media (`assets/`), raw clip.md and file paths, which the public edition always drops. Ask before publishing if anything listed
    looks wrong. A logged-in clip goes public only if the user sets `public: true` in its clip.md themselves.
    Notes go public only with `--with-notes`, and only if the user asks for it.
 3. **Check what's left.** Search `index.html`, `artbook.md`, `llms.txt` and `agents/` for the user's name, email, workspace or account IDs.
@@ -298,6 +305,10 @@ adds `python3 ~/.artspo/mcp/artspo_mcp.py`), you can add pages to the library in
 
 - **Rebuild, don't copy.** Never reproduce a site's code, logos, illustrations, photography or copy. Recipes
   are generic reconstructions from measurements.
+- **Assets are reference, not material.** A clip's `assets/` are the site's own logos, icons, illustrations,
+  photos, video and animations. Study them, then rebuild the style: an icon set on the same grid and stroke,
+  imagery with the same crop and treatment, a Lottie timing re-used in CSS. Never copy those files into a work,
+  a pattern's specimen or a book, unless the user tells you the site is theirs.
 - **Fonts carry licenses.** If you recommend a webfont from a clip, flag that it needs a license, or suggest
   a free alternative with similar metrics.
 - **Attribute every choice** to a pattern, and every pattern to clip folder names.

@@ -1,6 +1,8 @@
 // The automated inspection pass. Drives a tab over the Chrome DevTools Protocol
 // (chrome.debugger): reload with instrumentation, wait out load animations, scroll with
-// real wheel events, capture a filmstrip + full page, then extract tokens and motion.
+// real wheel events, capture a filmstrip + full page, then extract tokens, motion and the
+// page's own media (saved from Chrome's network cache by lib/media.js).
+import { collectMedia } from './media.js';
 
 const VIEW = { width: 1440, height: 900 };
 const STEP = Math.round(VIEW.height * 0.8);
@@ -40,9 +42,11 @@ class Session {
   constructor(tabId) {
     this.target = { tabId };
     this.waiters = [];
+    this.listeners = {};
     this.detached = null;
     this.onEvent = (src, method, params) => {
       if (src.tabId !== tabId) return;
+      for (const fn of this.listeners[method] || []) { try { fn(params); } catch {} }
       this.waiters = this.waiters.filter((w) => (w.method === method ? (w.resolve(params), false) : true));
     };
     this.onDetach = (src, reason) => {
@@ -61,6 +65,7 @@ class Session {
     if (this.detached) return Promise.reject(new Error(`debugger detached (${this.detached})`));
     return chrome.debugger.sendCommand(this.target, method, params);
   }
+  on(method, fn) { (this.listeners[method] ||= []).push(fn); }
   waitFor(method, ms) {
     return withTimeout(new Promise((resolve, reject) => this.waiters.push({ method, resolve, reject })), ms, method);
   }
@@ -122,6 +127,22 @@ async function inspectOnce(url, mode, onProgress = () => {}) {
     await s.attach();
     await s.send('Page.enable');
     await s.send('Runtime.enable');
+    // Watch what the page loads from the first request on, so its images, video and animation files can be
+    // saved from Chrome's cache afterwards (Network.getResponseBody) instead of being downloaded again.
+    const net = new Map();
+    const byId = new Map();
+    s.on('Network.responseReceived', (p) => {
+      const h = Object.fromEntries(Object.entries(p.response.headers || {}).map(([k, v]) => [k.toLowerCase(), v]));
+      const rec = {
+        id: p.requestId, url: p.response.url, type: p.type, mime: p.response.mimeType, status: p.response.status,
+        length: +h['content-length'] || 0, total: +((h['content-range'] || '').split('/')[1]) || 0, partial: p.response.status === 206,
+      };
+      byId.set(p.requestId, rec);
+      if (!net.has(rec.url) || !rec.partial) net.set(rec.url, rec);
+    });
+    s.on('Network.loadingFinished', (p) => { const r = byId.get(p.requestId); if (r) r.size = p.encodedDataLength; });
+    await s.send('Network.enable', { maxTotalBufferSize: 256 * 1024 * 1024, maxResourceBufferSize: 32 * 1024 * 1024 })
+      .catch((e) => diag.errors.push('network: ' + e.message));
     await s.send('Emulation.setFocusEmulationEnabled', { enabled: true }).catch((e) => diag.errors.push('focus emulation: ' + e.message));
     await s.send('Emulation.setDeviceMetricsOverride', { ...VIEW, deviceScaleFactor: 1, mobile: false });
     // (scrollbars: hidden via injected CSS below; Emulation.setScrollbarsHidden can stall captureScreenshot)
@@ -250,6 +271,20 @@ async function inspectOnce(url, mode, onProgress = () => {}) {
       diag.keyframesFetched = true;
     }
 
+    // ---- media ----
+    onProgress('saving media');
+    let assets = [];
+    try {
+      const t = Date.now();
+      const m = await collectMedia(s, result?.media, net, { pageUrl: url });
+      assets = m.files;
+      if (result) result.assets = m.manifest;
+      diag.mediaS = Math.round((Date.now() - t) / 1000);
+    } catch (e) {
+      diag.errors.push('media: ' + e.message);
+    }
+    if (result) delete result.media; // the inventory's markup is in the files now
+
     // ---- full page ----
     // Fixed elements (navs, chat widgets) get painted at odd places in a beyond-viewport capture, so: shoot the
     // top viewport with them, shoot the full page without them, then paste the top viewport back on.
@@ -289,7 +324,7 @@ async function inspectOnce(url, mode, onProgress = () => {}) {
 
     diag.throttled = (diag.fpsLoad ?? 60) < THROTTLED_FPS || (diag.fpsScroll ?? 60) < THROTTLED_FPS;
     diag.durationS = Math.round((Date.now() - started) / 1000);
-    return { result, frames, full, diag };
+    return { result, frames, full, diag, assets };
   } finally {
     await s.close();
     await target.close();
