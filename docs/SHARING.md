@@ -8,7 +8,14 @@ Your agent can do all of this for you ("Publish my library as a book on GitHub P
 
 ## What goes in, what stays home
 
-The book is built from the public edition, which leaves out:
+The book is built from the public edition. A work goes in only if its `work.md` says so:
+
+```yaml
+share: public    # in any book, for anyone
+share: invite    # only in invite-only books (below)
+```
+
+Works with no `share:` line stay home. The public edition also leaves out:
 
 - clips marked `private: true`, and clips that look like logged-in pages (app., dashboard and workspace URLs)
 - your notes (unless you add `--with-notes`), page text, full-page shots, filmstrips, raw `clip.md` and file paths
@@ -58,6 +65,28 @@ It also holds an **agent catalogue**, so an agent can shop the book instead of r
 
 Tell an agent `Shop https://you.github.io/artbook/llms.txt for design references that fit what we're building.`
 Add `--no-works` to publish patterns and clips only.
+
+A work's page can use files from outside its own folder, like another work's images or a shared script. The build
+copies those too, in the same layout as your library, so the links keep working. It won't copy a clipped site's
+own media, and it lists any file it skipped or couldn't find.
+
+## Invite-only books
+
+For work you want a few people to see, like client drafts or versions that sit close to their sources, build an
+invite-only book and put it behind a sign-in:
+
+```sh
+python3 ~/Projects/artspo/extension/skills/artspo/catalogue.py ~/Downloads/artspo --share invite \
+  --collection launch-moodboard --site ~/code/studio/site/launch --title "Launch drafts"
+```
+
+It takes works marked `share: public` or `share: invite`, adds `noindex`, and writes no `CNAME`. Never put it on
+GitHub Pages: a Pages site from a public repository is public, and so is every commit.
+
+To host it, copy [`hosting/invite-only`](../hosting/invite-only) into a **private** repository. It serves the books
+in its `site/` folder on one subdomain of a domain you already have on Cloudflare, only to people whose email you
+add, free for up to 50 people. They sign in with a one-time code sent by email, with nothing to install. Its README
+walks through the setup, publishing a book, and inviting or removing people.
 
 ## Your own domain, later
 

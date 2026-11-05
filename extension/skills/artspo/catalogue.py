@@ -11,7 +11,11 @@ Usage:  python3 catalogue.py [LIBRARY] [options]
   --public       the public edition: leaves out private and logged-in clips, your notes, site text,
                  full-page shots, filmstrips, saved site media, raw clip.md and file paths. Prints what it left out.
   --with-notes   with --public: keep your notes
-  --no-works     leave works out (a book of patterns and clips only, e.g. when works were made for clients)
+  --share LEVEL  which works go in a public edition, by the `share:` line in each work.md. `public` (the default)
+                 takes only works marked `share: public`, for a book anyone can open. `invite` also takes works
+                 marked `share: invite`, for a book behind a sign-in (it adds noindex and never writes a CNAME).
+                 Works with no `share:` line stay home. Implies --public
+  --no-works     leave works out (a book of patterns and clips only)
   --thumbnails   with --public: show each clip's screenshot (by default clips appear only as rebuilt element sheets)
   --url URL      with --site: the address the book will live at (https://you.github.io/artbook/). Gives shared
                  links a preview image; a domain that isn't github.io also gets a CNAME file for GitHub Pages
@@ -26,6 +30,11 @@ Examples
   python3 catalogue.py --public --embed --out ~/artspo.html   public single file
   python3 catalogue.py --public --site ~/launch --collection fintech-launch   share one collection
   python3 catalogue.py --public --site ~/code/artbook --url https://you.github.io/artbook/   a book for GitHub Pages
+  python3 catalogue.py --share invite --site ~/code/studio/site/launch --collection fintech-launch   behind a sign-in
+
+A work's page can use files outside its own folder (another work's images, a shared script): the book copies
+those too, keeping the library's layout so relative links still work. It never copies a clipped site's own media
+or anything outside the library, and prints what it skipped.
 
 Every --site folder is a book: index.html for people, artbook.md for agents (every pattern and work as a
 standalone prompt), cover.png for link previews, and an agent catalogue: llms.txt and agents/menu.json, which
@@ -450,6 +459,7 @@ def read_works(lib):
             out.append(dict(
                 type="work", key=d.name, collection=fm.get("collection", ""), title=fm.get("title") or title_of(body) or d.name, kind=fm.get("kind", "" if f.exists() else "uncatalogued"),
                 status=fm.get("status", "draft" if f.exists() else "uncatalogued"), starred=bool(fm.get("starred")),
+                share=str(fm.get("share") or "").strip().lower(),
                 made_by=fm.get("made_by", ""), made=str(fm.get("made", d.name[:10])),
                 patterns=fm.get("patterns") or [], clips=[key_of(c) for c in fm.get("clips") or []],
                 files=files, texts=texts, html=f"{base}/{d.name}/{html}" if html else "",
@@ -529,8 +539,56 @@ def public_edition(clips, patterns, works, with_notes=False, thumbnails=False):
     return keep, removed
 
 
+SHARE_LEVELS = {"public": {"public"}, "invite": {"public", "invite"}}
+LINKED = re.compile(r"""(?:\b(?:src|href|poster|data-src)\s*=\s*["']|url\(\s*["']?|\bimport\s*\(?\s*["']|\bfrom\s+["']|["'`](?=\.{1,2}/))"""
+                    r"""([^"'`()\s#?]+)""")
+TEXT_FILES = {".html", ".htm", ".css", ".js", ".mjs", ".json", ".svg", ".webmanifest"}
+TOO_BIG = 25 * 1024 * 1024  # Cloudflare's static hosting caps a file at 25 MiB; GitHub Pages at 100 MB
+
+
+def site_path(rel):
+    """Where a library path lands in a book: the library's own layout, with _generated/ folded into works/."""
+    parts = rel.parts
+    return pathlib.Path("works", *parts[1:]) if parts and parts[0] == "_generated" else rel
+
+
+def linked_files(lib, dirs):
+    """Files outside the given work folders that their pages link to by relative path, followed transitively.
+    Returns (needed lib-relative paths, skipped [(path, reason)])."""
+    from urllib.parse import unquote
+    start_files = [f for d in dirs for f in d.rglob("*") if f.is_file()]
+    allowed = ("works", "_generated", "patterns")  # a clip's folder holds a site's own media: never copied
+    seen, needed, skipped, todo = set(), [], [], list(start_files)
+    while todo:
+        f = todo.pop()
+        if f in seen or f.suffix.lower() not in TEXT_FILES or not f.exists():
+            continue
+        seen.add(f)
+        for m in LINKED.finditer(f.read_text(encoding="utf-8", errors="replace")):
+            ref = unquote(m.group(1))
+            if re.match(r"^([a-z][\w+.-]*:|//|/|\$\{)", ref, re.I) or "{" in ref:
+                continue  # absolute, another site, or built at run time
+            target = (f.parent / ref).resolve()
+            try:
+                rel = target.relative_to(lib)
+            except ValueError:
+                skipped.append((ref, f"outside the library (linked from {f.relative_to(lib)})"))
+                continue
+            if target.is_dir() or rel in needed or target in seen or any(d == target or d in target.parents for d in dirs):
+                continue
+            if not target.exists():
+                skipped.append((str(rel), f"missing (linked from {f.relative_to(lib)})"))
+                continue
+            if rel.parts[0] not in allowed or target.suffix == ".md":
+                skipped.append((str(rel), "a clipped site's own media, or notes: never published"))
+                continue
+            needed.append(rel)
+            todo.append(target)
+    return needed, skipped
+
+
 def write_site(lib, site, clips, works):
-    """Static folder: index.html + images, ready for any static host."""
+    """Static folder: index.html + images, ready for any static host. Returns notes about what was skipped."""
     import shutil
     (site / "img").mkdir(parents=True, exist_ok=True)
     for c in clips:
@@ -549,17 +607,26 @@ def write_site(lib, site, clips, works):
             name = f"img/{c['key']}-full{ext}"
             (site / name).write_bytes(data)
             c["full"] = name
+    if (site / "works").exists():
+        shutil.rmtree(site / "works")  # a work that's no longer shared must not linger in the book
     for w in works:
         src = lib / w["dir"]
         dst = site / "works" / w["key"]
-        if dst.exists():
-            shutil.rmtree(dst)
-        shutil.copytree(src, dst, ignore=shutil.ignore_patterns("*.md"))
+        shutil.copytree(src, dst, ignore=shutil.ignore_patterns("*.md", ".DS_Store"))
         rebase = lambda p: f"works/{w['key']}/{p.split('/', 2)[2]}" if p else p
         w["img"], w["html"] = rebase(w["img"]), rebase(w["html"])
+    needed, skipped = linked_files(lib, [(lib / w["dir"]).resolve() for w in works])
+    for rel in needed:
+        dst = site / site_path(rel)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(lib / rel, dst)
+    copied = [f for f in (site / "works").rglob("*")] if (site / "works").exists() else []
+    big = [str(f.relative_to(site)) for f in copied + [site / site_path(r) for r in needed]
+           if f.is_file() and f.stat().st_size > TOO_BIG]
+    return needed, skipped, big
 
 
-def head_tags(title, description, url, cover):
+def head_tags(title, description, url, cover, noindex=False):
     """<title> plus the tags that make a shared link preview well (Open Graph, X) and point agents at artbook.md."""
     esc = lambda t: str(t).replace("&", "&amp;").replace('"', "&quot;").replace("<", "&lt;")
     img = (url + cover) if url and cover else cover
@@ -571,6 +638,8 @@ def head_tags(title, description, url, cover):
             f'<link rel="alternate" type="text/markdown" href="artbook.md" title="This book as Markdown, for agents">',
             f'<link rel="alternate" type="application/json" href="agents/menu.json" title="Agent catalogue: every pattern and clip, one link each">',
             f'<link rel="help" type="text/plain" href="llms.txt" title="For agents: start here">']
+    if noindex:  # a book behind a sign-in: keep it out of search even if the sign-in is ever lifted
+        tags.append('<meta name="robots" content="noindex, nofollow">')
     if url:
         tags.append(f'<meta property="og:url" content="{esc(url)}">')
     if img:
@@ -580,7 +649,8 @@ def head_tags(title, description, url, cover):
 
 
 def main(argv):
-    opts = {"--out": None, "--site": None, "--title": None, "--collection": None, "--url": None, "--cover": None, "--description": None}
+    opts = {"--out": None, "--site": None, "--title": None, "--collection": None, "--url": None, "--cover": None, "--description": None,
+            "--share": None}
     flags, args, i = set(), [], 0
     while i < len(argv):
         a = argv[i]
@@ -596,7 +666,11 @@ def main(argv):
     lib = pathlib.Path(args[0] if args else "~/Downloads/artspo").expanduser().resolve()
     if not lib.exists():
         sys.exit(f"No library at {lib}. Clip something with the Artspo extension first, or pass the folder.")
-    embed, public = "--embed" in flags, "--public" in flags
+    share = opts["--share"]
+    if share and share not in SHARE_LEVELS:
+        sys.exit(f"--share takes {' or '.join(SHARE_LEVELS)}, not {share!r}.")
+    embed, public = "--embed" in flags, "--public" in flags or bool(share)
+    share = share or "public"
     site = pathlib.Path(opts["--site"]).expanduser().resolve() if opts["--site"] else None
     if embed and site:
         sys.exit("Use --embed (one file) or --site DIR (a folder), not both.")
@@ -611,8 +685,13 @@ def main(argv):
     clips, superseded = read_clips(lib)
     patterns = read_patterns(lib)
     works = [] if "--no-works" in flags else read_works(lib)
+    held = []
+    if public:  # a work leaves your machine only if its work.md says so
+        held = [w for w in works if w["share"] not in SHARE_LEVELS[share]]
+        works = [w for w in works if w["share"] in SHARE_LEVELS[share]]
     collections = read_collections(lib, clips)
     if opts["--collection"]:
+        _, _, held, _ = scope_to(opts["--collection"], clips, patterns, held, collections)  # report only this collection's
         clips, patterns, works, collections = scope_to(opts["--collection"], clips, patterns, works, collections)
         if not opts["--title"]:
             opts["--title"] = collections[0]["title"]
@@ -633,7 +712,7 @@ def main(argv):
     head = "<title>Artspo Catalogue</title>"
     if site:
         site.mkdir(parents=True, exist_ok=True)
-        write_site(lib, site, clips, works)
+        deps, skipped, big = write_site(lib, site, clips, works)
         out = site / "index.html"
         (site / "artbook.md").write_text(artbook(book, patterns, works), encoding="utf-8")
         shop_items = write_agents(site, book, patterns, clips, collections)
@@ -647,9 +726,9 @@ def main(argv):
         (site / ".nojekyll").write_text("", encoding="utf-8")  # GitHub Pages: serve the folder as it is
         host = re.sub(r"^https?://([^/:]+).*$", r"\1", url) if url else ""
         at_root = re.sub(r"^https?://[^/]+", "", url or "") in ("", "/")
-        if host and not host.endswith(".github.io") and at_root:  # a book in a subfolder rides on the parent site's domain
+        if host and not host.endswith(".github.io") and at_root and share != "invite":  # a book in a subfolder rides on the parent site's domain
             (site / "CNAME").write_text(host + "\n", encoding="utf-8")  # GitHub Pages: your own domain
-        head = head_tags(book["title"] or "An Artspo book", description, url, cover)
+        head = head_tags(book["title"] or "An Artspo book", description, url, cover, noindex=share == "invite")
     else:
         out = pathlib.Path(opts["--out"]).expanduser() if opts["--out"] else lib / "catalogue.html"
         if embed:
@@ -676,16 +755,26 @@ def main(argv):
     if not embed:  # a standalone file needs its own doctype; a page published as an artifact gets one from the host
         page = '<!doctype html>\n<html lang="en">\n<meta charset="utf-8">\n' + page
     out.write_text(page, encoding="utf-8")
-    edition = "public edition" if public else "private"
+    edition = ("invite-only edition" if share == "invite" else "public edition") if public else "private"
     print(f"catalogue ({edition}) → {out}  ({len(works)} works, {len(patterns)} patterns, {len(clips)} clips"
           + (f", {superseded} superseded hidden" if superseded and not public else "") + ")")
     for title, why in removed:
         print(f"  left out: {title} — {why}")
+    if public and held:
+        mark = "share: public" if share == "public" else "share: public or share: invite"
+        print(f"  left out: {len(held)} work{'s' * (len(held) != 1)} not marked {mark} in work.md"
+              + (f" ({', '.join(w['key'] for w in held[:4])}{', …' if len(held) > 4 else ''})"))
     if public:
         print("  also left out: notes" + ("" if "--with-notes" not in flags else " (kept: --with-notes)")
               + ", page text, full-page shots, filmstrips, the sites' saved media (assets/), raw clip.md, work .md files, file paths"
               + ("" if "--thumbnails" in flags else ", clip screenshots (add --thumbnails to show them)"))
     if site:
+        if deps:
+            print(f"  also copied {len(deps)} file{'s' * (len(deps) != 1)} the works link to outside their own folders")
+        for ref, why in skipped:
+            print(f"  not copied: {ref} — {why}")
+        for f in big:
+            print(f"  too big for some hosts (over 25 MiB): {f}")
         print(f"  book: artbook.md (for agents), llms.txt + agents/ ({shop_items} items agents can fetch one by one), {cover} (social card)"
               + (", CNAME" if (site / "CNAME").exists() and url else ""))
         if not url:

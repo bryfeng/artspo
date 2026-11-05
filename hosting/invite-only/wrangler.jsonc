@@ -1,0 +1,29 @@
+// An invite-only Artspo studio: the books in ./site, served on one domain, only to people signed in through
+// Cloudflare Access. See README.md.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "artbook-studio",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-10-01",
+
+  // One address only. No *.workers.dev address and no preview URLs: those would sit outside the sign-in.
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "studio.artbook.dev", "custom_domain": true }],
+
+  // Every request goes through the Worker first, so nothing is served without a valid sign-in.
+  "assets": {
+    "directory": "./site",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "not_found_handling": "404-page"
+  },
+
+  // Fill these in once the Access application exists (Zero Trust → Access → Applications → your app):
+  // the team domain, e.g. "artbook.cloudflareaccess.com", and the application's "Application Audience (AUD) Tag".
+  // Until both are set, the site answers every request with "This site isn't open yet."
+  "vars": {
+    "ACCESS_TEAM_DOMAIN": "",
+    "ACCESS_AUD": ""
+  }
+}

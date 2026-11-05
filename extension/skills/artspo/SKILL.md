@@ -187,6 +187,7 @@ title: Light table
 kind: brand-direction           # brand-direction | tokens | motion-spec | page | component | other
 status: draft                   # draft | kept | shipped | dropped. The user's call: agents only ever write draft.
 starred: false                  # the user's; never change it
+share:                          # public | invite | empty. The user's call: who may see it when a book is published
 made_by: claude                 # which agent, or "you" for the user's own work
 made: 2026-10-15
 collection: launch-moodboard     # the collection (project) it was made for, if any
@@ -207,6 +208,9 @@ One or two sentences: what it is and what it's for.
 - **Iterating.** A new version of a work is a new folder (`…_light-table-v2`), with the earlier one listed under
   Made from. Don't overwrite a work the user has given a verdict.
 - **The user's own work** goes in the same shape with `made_by: you`. Ask them what it drew on; don't guess.
+- **Sharing.** `share:` decides whether a work leaves the user's machine: `public` puts it in books anyone can
+  open, `invite` only in books behind a sign-in, and empty keeps it home. Never set or change it yourself; ask.
+  A work made for a client, or one that sits close to a single source site, should not be `public`.
 - **Verdicts are evidence.** When generating, read the verdicts on earlier works: a `dropped` work with a reason
   tells you what not to repeat, a `kept` or `shipped` one tells you what landed.
 
@@ -248,7 +252,15 @@ same book as one Markdown file for agents, plus an **agent catalogue** agents ca
    - `--collection <name>` makes a book of one collection: its brief, clips, the works made for it, their patterns.
    - Clips appear as rebuilt element sheets with no screenshots. Add `--thumbnails` only if the user wants each
      site's screenshot shown; it's their call, since those images belong to the sites.
-   - `--no-works` leaves works out, for a book of patterns and clips only (ask if works were made for clients).
+   - Works go in only if their work.md says `share: public`; the script lists the ones it held back.
+     `--no-works` leaves all works out.
+   - **Invite-only book:** `--share invite` also takes works marked `share: invite`, adds `noindex` and writes no
+     `CNAME`. Publish it only to a host that asks visitors to sign in (docs/SHARING.md has a Cloudflare recipe),
+     never to GitHub Pages or anywhere public.
+   - A work's page may link to files outside its folder (another work's images, a shared script). The build copies
+     them, keeping the library's layout, and prints anything it couldn't or wouldn't copy (missing files, a
+     clipped site's own media). Fix a missing file before publishing; after publishing, open each work and check
+     nothing failed to load.
    - A book in a subfolder of a site (`--url https://artbook.dev/library/`) gets no `CNAME`; the parent site has it.
    - One self-contained file instead of a folder: `--public --embed --out FILE` (no artbook.md, cover or agent catalogue).
 2. **Show the user what was left out.** The script prints it: clips marked `private: true`, clips that look like

@@ -359,7 +359,7 @@ function renderSide(it) {
   } else if (it.type === 'work') {
     if (it.verdict) side.append(el('p', 'verdict', it.verdict)); else if (!D.public) side.append(el('p', 'note empty', 'No verdict yet. Write yours under ## Verdict in work.md, and set status to kept, shipped or dropped.'));
     if (it.summary) side.append(el('p', '', it.summary));
-    side.append(meta([['status', it.status], ['kind', it.kind], ['made', it.made], ['by', it.made_by]]));
+    side.append(meta([['status', it.status], ['kind', it.kind], ['made', it.made], ['by', it.made_by], ['shared', D.public ? '' : (it.share || 'no')]]));
   } else {
     side.append(el('p', '', it.summary));
     let from = it.from_book;
